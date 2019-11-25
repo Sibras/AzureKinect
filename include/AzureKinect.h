@@ -20,7 +20,6 @@
 #include <k4abt.h>
 #include <mutex>
 #include <thread>
-#include <utility>
 
 namespace Ak {
 class AzureKinect
@@ -41,9 +40,10 @@ public:
     /**
      * Initializes the azure kinect camera.
      * @param error (Optional) The callback used to signal errors.
+     * @param ready (Optional) The callback used to signal camera is ready for operations.
      * @returns True if it succeeds, false if it fails.
      */
-    bool init(std::function<void(const std::string&)> error = nullptr) noexcept;
+    bool init(std::function<void(const std::string&)> error = nullptr, std::function<void()> ready = nullptr) noexcept;
 
     /**
      * Notify to start acquisition.
@@ -166,6 +166,7 @@ public:
 private:
     std::atomic_bool m_shutdown = false;
     std::atomic_bool m_run = false;
+    std::atomic_bool m_run2 = false;
     std::atomic_uint32_t m_pid = 0;
     k4a_device_t m_device = nullptr;
     k4abt_tracker_t m_tracker = nullptr;
@@ -176,12 +177,19 @@ private:
     std::thread m_captureThread;
     std::function<void(const std::string&)> m_errorCallback = nullptr;
 
+    [[nodiscard]] bool initCamera() noexcept;
+
+    [[nodiscard]] bool initOutput() noexcept;
+
+    void cleanupOutput() noexcept;
+
     /**
      * Run image acquisition and processing.
      * @remark init() must be called before this function can be used.
+     * @param ready (Optional) The callback used to signal camera is ready for operations.
      * @returns True if it succeeds, false if it fails.
      */
-    [[nodiscard]] bool run() noexcept;
+    [[nodiscard]] bool run(const std::function<void()>& ready = nullptr) noexcept;
 
     /** Cleanup any resources created during init(). */
     void cleanup() noexcept;

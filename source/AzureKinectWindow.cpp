@@ -38,8 +38,10 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     connect(m_ui.actionExit, &QAction::triggered, this, &AzureKinectWindow::exitSlot);
 
     // Start device (uses timer to start once UI is fully loaded so we can receive messages)
-    QTimer::singleShot(
-        0, this, [=]() { m_kinect.init(bind(&AzureKinectWindow::errorCallback, this, placeholders::_1)); });
+    QTimer::singleShot(0, this, [=]() {
+        m_kinect.init(bind(&AzureKinectWindow::errorCallback, this, placeholders::_1),
+            bind(&AzureKinectWindow::readyCallback, this));
+    });
 }
 
 void AzureKinectWindow::startSlot() noexcept
@@ -79,22 +81,36 @@ void AzureKinectWindow::closeEvent(QCloseEvent* event) noexcept
     event->accept();
 }
 
-void AzureKinectWindow::errorCallback(const std::string& message)
+void AzureKinectWindow::errorCallback(const std::string& message) noexcept
 {
-    auto callback = [this, message]() {
-        // main thread
-        QMessageBox::critical(this, tr("AzureKinect"), QString::fromStdString(message));
-        emit exitSlot();
-    };
     // Must ensure that message box is displayed in primary gui thread
     if (qApp->thread() == QThread::currentThread()) {
-        callback();
+        QMessageBox::critical(this, tr("AzureKinect"), QString::fromStdString(message));
+        emit exitSlot();
     } else {
         auto* timer = new QTimer();
         timer->moveToThread(qApp->thread());
         timer->setSingleShot(true);
-        connect(timer, &QTimer::timeout, callback);
+        connect(timer, &QTimer::timeout, [this, message, timer]() {
+            // main thread
+            QMessageBox::critical(this, tr("AzureKinect"), QString::fromStdString(message));
+            emit exitSlot();
+            delete timer;
+        });
         QMetaObject::invokeMethod(timer, "start", Qt::BlockingQueuedConnection, Q_ARG(int, 0));
     }
+}
+
+void AzureKinectWindow::readyCallback() const noexcept
+{
+    auto* timer = new QTimer();
+    timer->moveToThread(qApp->thread());
+    timer->setSingleShot(true);
+    connect(timer, &QTimer::timeout, [this, timer]() {
+        // Enable start button
+        m_ui.buttonStart->setEnabled(true);
+        delete timer;
+    });
+    QMetaObject::invokeMethod(timer, "start", Qt::BlockingQueuedConnection, Q_ARG(int, 0));
 }
 } // namespace Ak

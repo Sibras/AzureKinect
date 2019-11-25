@@ -17,9 +17,11 @@
 #include "AzureKinect.h"
 
 #include <array>
+#include <filesystem>
+#include <iomanip>
 #include <k4a/k4a.h>
+#include <sstream>
 #include <vector>
-
 using namespace std;
 
 namespace Ak {
@@ -47,6 +49,15 @@ static array<pair<k4abt_joint_id_t, k4abt_joint_id_t>, 31> s_boneList = {
     make_pair(K4ABT_JOINT_ANKLE_RIGHT, K4ABT_JOINT_FOOT_RIGHT), make_pair(K4ABT_JOINT_NOSE, K4ABT_JOINT_EYE_RIGHT),
     make_pair(K4ABT_JOINT_EYE_RIGHT, K4ABT_JOINT_EAR_RIGHT)};
 
+string toString(const int number, const unsigned length) noexcept
+{
+    string num = to_string(number);
+    while (num.length() < length) {
+        num.insert(0, 1, '0');
+    }
+    return num;
+}
+
 AzureKinect::~AzureKinect()
 {
     cleanup();
@@ -73,11 +84,19 @@ void AzureKinect::shutdown() noexcept
     }
 }
 
-bool AzureKinect::init(std::function<void(const std::string&)> error) noexcept
+bool AzureKinect::init(std::function<void(const std::string&)> error, std::function<void()> ready) noexcept
 {
     // Store callbacks
     m_errorCallback = move(error);
 
+    // Start capture thread running
+    m_captureThread = thread(&AzureKinect::run, this, move(ready));
+
+    return true;
+}
+
+bool AzureKinect::initCamera() noexcept
+{
     if (k4a_device_open(0, &m_device) != K4A_RESULT_SUCCEEDED) {
         if (m_errorCallback != nullptr) {
             m_errorCallback("Failed to open K4A device");
@@ -90,7 +109,6 @@ bool AzureKinect::init(std::function<void(const std::string&)> error) noexcept
     deviceConfig.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
     deviceConfig.color_resolution = K4A_COLOR_RESOLUTION_720P;
     deviceConfig.camera_fps = K4A_FRAMES_PER_SECOND_30;
-    deviceConfig.color_format = K4A_IMAGE_FORMAT_COLOR_NV12;
     if (k4a_device_start_cameras(m_device, &deviceConfig) != K4A_RESULT_SUCCEEDED) {
         if (m_errorCallback != nullptr) {
             m_errorCallback("Failed to start K4A camera");
@@ -121,15 +139,69 @@ bool AzureKinect::init(std::function<void(const std::string&)> error) noexcept
         }
         return false;
     }
+    return true;
+}
 
-    // Start capture thread running
-    m_captureThread = thread(&AzureKinect::run, this);
+bool AzureKinect::initOutput() noexcept
+{
+    // Initialise output files
+    const string pidString = "PID"s + toString(m_pid, 3);
+    string baseDir = "./";
+    baseDir += pidString;
+    baseDir += '/';
+    int scanID = 1;
+    error_code ec;
+    while (true) {
+        string scanDir = baseDir + toString(scanID, 3);
+        if (!filesystem::exists(scanDir, ec)) {
+            baseDir = scanDir;
+            break;
+        }
+        ++scanID;
+    }
+
+    if (!filesystem::create_directories(baseDir, ec)) {
+        if (ec && m_errorCallback != nullptr) {
+            m_errorCallback("Failed creating output directory ("s + baseDir + ") with " + ec.message());
+        }
+        return false;
+    }
+    string timeString;
+    stringstream ss;
+    time_t inTimeT = chrono::system_clock::to_time_t(chrono::system_clock::now());
+    ss << put_time(localtime(&inTimeT), "%Y-%m-%d");
+    ss >> timeString;
+    string poseFile = baseDir;
+    ((poseFile += '/') += pidString) += timeString;
+
+    string videoFile = poseFile;
+    videoFile += ".mkv";
+    poseFile += ".csv";
+
+    // Start recording
+    // TODO:
 
     return true;
 }
 
-bool AzureKinect::run() noexcept
+void AzureKinect::cleanupOutput() noexcept
 {
+    // Finalise output files
+    // TODO:
+}
+
+bool AzureKinect::run(const std::function<void()>& ready) noexcept
+{
+    if (!initCamera()) {
+        cleanup();
+        return false;
+    }
+
+    // Trigger callback
+    if (ready) {
+        ready();
+    }
+
     while (!m_shutdown) {
         // Get the capture from the camera
         k4a_capture_t captureHandle = nullptr;
@@ -166,12 +238,11 @@ bool AzureKinect::run() noexcept
             // Get the tracker data
             if (k4abt_frame_get_num_bodies(bodyFrame) > 0) {
                 k4abt_body_t body;
-                if (const auto res = k4abt_frame_get_body_skeleton(bodyFrame, 0, &body.skeleton);
-                    res != K4A_RESULT_SUCCEEDED) {
+                if (k4abt_frame_get_body_skeleton(bodyFrame, 0, &body.skeleton) != K4A_RESULT_SUCCEEDED) {
                     if (m_errorCallback != nullptr) {
                         m_errorCallback("Failed to get skeleton from K4A capture");
                     }
-                    return false;
+                    m_run = false;
                 }
                 body.id = k4abt_frame_get_body_id(bodyFrame, 0);
 
@@ -224,9 +295,22 @@ bool AzureKinect::run() noexcept
             }
 
             if (m_run) {
-                // TODO: Write out to file
+                if (!m_run2) {
+                    if (initOutput()) {
+                        m_run2 = true;
+                    } else {
+                        m_run = false;
+                    }
+                }
+                if (m_run) {
+                    // TODO: Write out to file
 
-                // TODO: Encode images
+                    // Encode images
+                    // TODO:
+                }
+            } else if (m_run2) {
+                cleanupOutput();
+                m_run2 = false;
             }
 
             // TODO: Send data to renderer

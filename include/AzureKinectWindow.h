@@ -42,6 +42,8 @@ private:
 
     void closeEvent(QCloseEvent* event) noexcept override;
 
-    void errorCallback(const std::string& message);
+    void errorCallback(const std::string& message) noexcept;
+
+    void readyCallback() const noexcept;
 };
 } // namespace Ak

@@ -33,6 +33,10 @@ void KinectWidget::initializeGL() noexcept
     initializeOpenGLFunctions();
     // Connect cleanup handler
     connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &KinectWidget::cleanup);
+    glEnable(GL_MULTISAMPLE);
+    glDisable(GL_BLEND);
+    glClearColor(0.f, 0.f, 0.f, 0.f);
+    glClearDepth(1.0f);
 }
 
 void KinectWidget::resizeGL(const int width, const int height) noexcept
@@ -41,7 +45,10 @@ void KinectWidget::resizeGL(const int width, const int height) noexcept
     glViewport((width - side) / 2, (height - side) / 2, side, side);
 }
 
-void KinectWidget::paintGL() noexcept {}
+void KinectWidget::paintGL() noexcept
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
 
 void KinectWidget::cleanup() noexcept
 {
