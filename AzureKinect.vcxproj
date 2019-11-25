@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{B12702AD-ABFB-343A-A199-8E24837244A3}</ProjectGuid>
+    <Keyword>QtVS_v301</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(QtMsBuild)'=='' or !Exists('$(QtMsBuild)\qt.targets')">
+    <QtMsBuild>$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>.\bin\</OutDir>
+    <IntDir>.\obj\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>.\bin\</OutDir>
+    <IntDir>.\obj\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
+    <Message Importance="High" Text="QtMsBuild: could not locate qt.targets, qt.props; project may not build correctly." />
+  </Target>
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ImportGroup Condition="Exists('$(QtMsBuild)\qt_defaults.props')">
+    <Import Project="$(QtMsBuild)\qt_defaults.props" />
+  </ImportGroup>
+  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <QtInstall>msvc2017_64</QtInstall>
+    <QtModules>core;gui;opengl;widgets</QtModules>
+  </PropertyGroup>
+  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <QtInstall>msvc2017_64</QtInstall>
+    <QtModules>core;gui;opengl;widgets</QtModules>
+  </PropertyGroup>
+  <ImportGroup Condition="Exists('$(QtMsBuild)\qt.props')">
+    <Import Project="$(QtMsBuild)\qt.props" />
+  </ImportGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>Disabled</Optimization>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <WarningLevel>Level4</WarningLevel>
+      <ExceptionHandling>false</ExceptionHandling>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions> /experimental:external /external:anglebrackets /external:W1 %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_HAS_EXCEPTIONS=0;QT_NO_EXCEPTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DebugInformationFormat />
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <SDLCheck>false</SDLCheck>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <ExceptionHandling>false</ExceptionHandling>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions> /experimental:external /external:anglebrackets /external:W1 %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_HAS_EXCEPTIONS=0;QT_NO_EXCEPTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="source\AzureKinect.cpp" />
+    <ClCompile Include="source\AzureKinectWindow.cpp" />
+    <ClCompile Include="source/main.cpp" />
+    <ClCompile Include="source\KinectWidget.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="include\AzureKinectWindow.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <QtUic Include="source/AzureKinect.ui" />
+  </ItemGroup>
+  <ItemGroup>
+    <QtRcc Include="source/AzureKinect.qrc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include/KinectWidget.h" />
+    <ClInclude Include="include\AzureKinect.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="dnn_model_2_0.onnx" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
+    <Import Project="$(QtMsBuild)\qt.targets" />
+  </ImportGroup>
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\Microsoft.Azure.Kinect.Sensor.1.3.0\build\native\Microsoft.Azure.Kinect.Sensor.targets" Condition="Exists('packages\Microsoft.Azure.Kinect.Sensor.1.3.0\build\native\Microsoft.Azure.Kinect.Sensor.targets')" />
+    <Import Project="packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.targets" Condition="Exists('packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.targets')" />
+    <Import Project="packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.targets" Condition="Exists('packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.targets')" />
+    <Import Project="packages\Microsoft.Azure.Kinect.BodyTracking.0.9.4\build\native\Microsoft.Azure.Kinect.BodyTracking.targets" Condition="Exists('packages\Microsoft.Azure.Kinect.BodyTracking.0.9.4\build\native\Microsoft.Azure.Kinect.BodyTracking.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\Microsoft.Azure.Kinect.Sensor.1.3.0\build\native\Microsoft.Azure.Kinect.Sensor.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Azure.Kinect.Sensor.1.3.0\build\native\Microsoft.Azure.Kinect.Sensor.targets'))" />
+    <Error Condition="!Exists('packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.targets'))" />
+    <Error Condition="!Exists('packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.targets'))" />
+    <Error Condition="!Exists('packages\Microsoft.Azure.Kinect.BodyTracking.0.9.4\build\native\Microsoft.Azure.Kinect.BodyTracking.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Azure.Kinect.BodyTracking.0.9.4\build\native\Microsoft.Azure.Kinect.BodyTracking.targets'))" />
+  </Target>
+</Project>
