@@ -35,19 +35,40 @@ KinectWidget::~KinectWidget() noexcept
     cleanup();
 }
 
+void KinectWidget::setRenderOptions(
+    const bool depthImage, const bool colourImage, const bool bodyShadow, const bool bodySkeleton)
+{
+    m_depthImage = depthImage;
+    m_colourImage = colourImage;
+    m_bodyShadowImage = bodyShadow;
+    m_bodySkeletonImage = bodySkeleton;
+}
+
 void KinectWidget::imageSlot(
-    char* imageData, const unsigned width, const unsigned height, const unsigned stride) noexcept
+    char* depthImage, const unsigned depthWidth, const unsigned depthHeight, const unsigned depthStride) noexcept
 {
     // Only inbuilt types can be used as parameters for signal/slot connections. Hence why unsigned must be used instead
     // of uint32_t as otherwise connections are not triggered properly
 
-    // Copy data into texture
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, stride / 2);
-    glBindTexture(GL_TEXTURE_2D, m_depthTexture);
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, imageData);
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    if (m_depthImage) {
+        // Copy depth image data
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, depthStride / 2);
+        glBindTexture(GL_TEXTURE_2D, m_depthTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, depthWidth, depthHeight, 0, GL_DEPTH_COMPONENT,
+            GL_UNSIGNED_SHORT, depthImage);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    } else if (m_colourImage) {
+        // TODO:****
+    }
+
+    if (m_bodyShadowImage) {
+        // TODO:****
+    }
+
+    if (m_bodySkeletonImage) {
+        // TODO:****
+    }
 
     // Signal that widget needs to be rendered with new data
     update();
@@ -166,17 +187,32 @@ void KinectWidget::paintGL() noexcept
     // Set correct viewport as it gets changed by Qt
     glViewport(m_viewportX, m_viewportY, m_viewportW, m_viewportH);
 
-    // Render depth image
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glUseProgram(m_depthProgram);
-    glBindVertexArray(m_quadVAO);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, m_depthTexture);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
+    if (m_depthImage) {
+        // Render depth image
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        glUseProgram(m_depthProgram);
+        glBindVertexArray(m_quadVAO);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, m_depthTexture);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+    } else if (m_colourImage) {
+        // Render colour image
+        // TODO:****
+    }
+
+    if (m_bodyShadowImage) {
+        // Render body shadow
+        // TODO:****
+    }
+
+    if (m_bodySkeletonImage) {
+        // Render body skeleton
+        // TODO:****
+    }
 }
 
 void KinectWidget::cleanup() noexcept

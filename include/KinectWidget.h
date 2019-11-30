@@ -29,16 +29,25 @@ public:
 
     ~KinectWidget() noexcept override;
 
+    /**
+     * Sets what types of data should be rendered.
+     * @param depthImage   True to render depth image.
+     * @param colourImage  True to render colour image.
+     * @param bodyShadow   True to render body shadow.
+     * @param bodySkeleton True to render body skeleton.
+     */
+    void setRenderOptions(bool depthImage, bool colourImage, bool bodyShadow, bool bodySkeleton);
+
 public slots:
 
     /**
      * Slot used to receive thread safe, asynchronous image information.
-     * @param [in] imageData The depth image data array.
-     * @param      width     The width.
-     * @param      height    The height.
-     * @param      stride    The stride.
+     * @param [in] depthImage  The depth image data array.
+     * @param      depthWidth  The depth image width.
+     * @param      depthHeight The depth image height.
+     * @param      depthStride The depth image stride.
      */
-    void imageSlot(char* imageData, unsigned width, unsigned height, unsigned stride) noexcept;
+    void imageSlot(char* depthImage, unsigned depthWidth, unsigned depthHeight, unsigned depthStride) noexcept;
 
 signals:
     /**
@@ -60,6 +69,11 @@ private:
     GLint m_viewportY = 0;
     GLsizei m_viewportW = 0;
     GLsizei m_viewportH = 0;
+
+    bool m_depthImage = true;
+    bool m_colourImage = false;
+    bool m_bodyShadowImage = true;
+    bool m_bodySkeletonImage = true;
 
     GLuint m_depthProgram = 0;
 

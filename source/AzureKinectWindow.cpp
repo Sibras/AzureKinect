@@ -40,6 +40,10 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     connect(this, &AzureKinectWindow::readySignal, this, &AzureKinectWindow::readySlot);
     connect(this, &AzureKinectWindow::imageSignal, m_ui.openGLWidget, &KinectWidget::imageSlot);
     connect(m_ui.openGLWidget, &KinectWidget::errorSignal, this, &AzureKinectWindow::errorSlot);
+    connect(m_ui.actionDepth_Image, &QAction::triggered, this, &AzureKinectWindow::depthImageSlot);
+    connect(m_ui.actionColour_Image, &QAction::triggered, this, &AzureKinectWindow::colourImageSlot);
+    connect(m_ui.actionBody_Shadow, &QAction::triggered, this, &AzureKinectWindow::bodyShadowSlot);
+    connect(m_ui.actionBody_Skeleton, &QAction::triggered, this, &AzureKinectWindow::bodySkeletonSlot);
 
     // Start device (uses timer to start once UI is fully loaded so we can receive messages)
     QTimer::singleShot(0, this, [=]() {
@@ -93,6 +97,39 @@ void AzureKinectWindow::readySlot() const noexcept
     m_ui.buttonStart->setEnabled(true);
 }
 
+void AzureKinectWindow::depthImageSlot() noexcept
+{
+    m_depthImage = true;
+    // Only 1 of depth/colour image can be selected at a time so disable the current one and enable the other
+    m_ui.actionDepth_Image->setChecked(true);
+    m_ui.actionDepth_Image->setDisabled(true);
+    m_ui.actionColour_Image->setChecked(false);
+    m_ui.actionColour_Image->setEnabled(true);
+    m_ui.openGLWidget->setRenderOptions(m_depthImage, !m_depthImage, m_bodyShadowImage, m_bodySkeletonImage);
+}
+
+void AzureKinectWindow::colourImageSlot() noexcept
+{
+    m_depthImage = false;
+    m_ui.actionColour_Image->setChecked(true);
+    m_ui.actionColour_Image->setDisabled(true);
+    m_ui.actionDepth_Image->setChecked(false);
+    m_ui.actionDepth_Image->setEnabled(true);
+    m_ui.openGLWidget->setRenderOptions(m_depthImage, !m_depthImage, m_bodyShadowImage, m_bodySkeletonImage);
+}
+
+void AzureKinectWindow::bodyShadowSlot() noexcept
+{
+    m_bodyShadowImage = m_ui.actionBody_Shadow->isChecked();
+    m_ui.openGLWidget->setRenderOptions(m_depthImage, !m_depthImage, m_bodyShadowImage, m_bodySkeletonImage);
+}
+
+void AzureKinectWindow::bodySkeletonSlot() noexcept
+{
+    m_bodySkeletonImage = m_ui.actionBody_Skeleton->isChecked();
+    m_ui.openGLWidget->setRenderOptions(m_depthImage, !m_depthImage, m_bodyShadowImage, m_bodySkeletonImage);
+}
+
 void AzureKinectWindow::closeEvent(QCloseEvent* event) noexcept
 {
     exitSlot();
@@ -111,13 +148,21 @@ void AzureKinectWindow::readyCallback() const noexcept
 }
 
 void AzureKinectWindow::imageCallback(
-    uint8_t* imageData, const uint32_t width, const uint32_t height, const uint32_t stride) noexcept
+    uint8_t* depthImage, const uint32_t depthWidth, const uint32_t depthHeight, const uint32_t depthStride) noexcept
 {
     // Need to copy data into local storage
-    m_depthBuffer[1].setRawData(reinterpret_cast<char*>(imageData), height * stride);
-    {
-        m_depthBuffer[0].swap(m_depthBuffer[1]);
+    if (m_depthImage) {
+        m_imageBuffer[1].setRawData(reinterpret_cast<char*>(depthImage), depthHeight * depthStride);
+    } else {
+        // TODO: colour image using same buffer
     }
-    emit imageSignal(m_depthBuffer[0].data(), width, height, stride);
+    m_imageBuffer[0].swap(m_imageBuffer[1]);
+    if (m_bodyShadowImage) {
+        // TODO:*********
+    }
+    if (m_bodySkeletonImage) {
+        // TODO:*********
+    }
+    emit imageSignal(m_imageBuffer[0].data(), depthWidth, depthHeight, depthStride);
 }
 } // namespace Ak

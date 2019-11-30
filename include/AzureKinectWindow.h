@@ -45,12 +45,27 @@ public slots:
     /** Slot used to notify program that camera is ready to start capture */
     void readySlot() const noexcept;
 
+    /** Slot used to select display of depth image */
+    void depthImageSlot() noexcept;
+
+    /** Slot used to select display of colour image */
+    void colourImageSlot() noexcept;
+
+    /** Slot used to select display of body shadow */
+    void bodyShadowSlot() noexcept;
+
+    /** Slot used to select display of body skeleton */
+    void bodySkeletonSlot() noexcept;
+
 private:
     Ui::AzureKinectClass m_ui;
     QValidator* m_validatorPID = nullptr;
+    QByteArray m_imageBuffer[2];
+    bool m_depthImage = true;
+    bool m_bodyShadowImage = true;
+    bool m_bodySkeletonImage = true;
     bool m_started = false;
     AzureKinect m_kinect;
-    QByteArray m_depthBuffer[2];
 
     /**
      * Override used to capture and handle close events.
@@ -73,12 +88,12 @@ private:
 
     /**
      * Callback used by the camera thread when new image information is available.
-     * @param [in] imageData The depth image data array.
-     * @param      width     The width.
-     * @param      height    The height.
-     * @param      stride    The stride.
+     * @param [in] depthImage  The depth image data array.
+     * @param      depthWidth  The depth image width.
+     * @param      depthHeight The depth image height.
+     * @param      depthStride The depth image stride.
      */
-    void imageCallback(uint8_t* imageData, uint32_t width, uint32_t height, uint32_t stride) noexcept;
+    void imageCallback(uint8_t* depthImage, uint32_t depthWidth, uint32_t depthHeight, uint32_t depthStride) noexcept;
 
 signals:
     /**
@@ -97,11 +112,11 @@ signals:
     /**
      * Signal used to pass asynchronous thread safe image data.
      * @note This is required by @imageCallback.
-     * @param [in] imageData The depth image data array.
-     * @param      width     The width.
-     * @param      height    The height.
-     * @param      stride    The stride.
+     * @param [in] depthImage  The depth image data array.
+     * @param      depthWidth  The depth image width.
+     * @param      depthHeight The depth image height.
+     * @param      depthStride The depth image stride.
      */
-    void imageSignal(char* imageData, unsigned width, unsigned height, unsigned stride) const;
+    void imageSignal(char* depthImage, unsigned depthWidth, unsigned depthHeight, unsigned depthStride) const;
 };
 } // namespace Ak
