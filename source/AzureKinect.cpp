@@ -84,10 +84,12 @@ void AzureKinect::shutdown() noexcept
     }
 }
 
-bool AzureKinect::init(std::function<void(const std::string&)> error, std::function<void()> ready) noexcept
+bool AzureKinect::init(std::function<void(const std::string&)> error, std::function<void()> ready,
+    std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t)> image) noexcept
 {
     // Store callbacks
     m_errorCallback = move(error);
+    m_imageCallback = move(image);
 
     // Start capture thread running
     m_captureThread = thread(&AzureKinect::run, this, move(ready));
@@ -109,6 +111,7 @@ bool AzureKinect::initCamera() noexcept
     deviceConfig.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
     deviceConfig.color_resolution = K4A_COLOR_RESOLUTION_720P;
     deviceConfig.camera_fps = K4A_FRAMES_PER_SECOND_30;
+    deviceConfig.color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
     if (k4a_device_start_cameras(m_device, &deviceConfig) != K4A_RESULT_SUCCEEDED) {
         if (m_errorCallback != nullptr) {
             m_errorCallback("Failed to start K4A camera");
@@ -125,10 +128,6 @@ bool AzureKinect::initCamera() noexcept
         }
         return false;
     }
-    m_depthWidth = sensorCalibration.depth_camera_calibration.resolution_width;
-    m_depthHeight = sensorCalibration.depth_camera_calibration.resolution_height;
-    m_imageWidth = sensorCalibration.color_camera_calibration.resolution_width;
-    m_imageHeight = sensorCalibration.color_camera_calibration.resolution_height;
 
     // Create Body Tracker
     k4abt_tracker_configuration_t trackerConfig = K4ABT_TRACKER_CONFIG_DEFAULT;
@@ -144,7 +143,7 @@ bool AzureKinect::initCamera() noexcept
 
 bool AzureKinect::initOutput() noexcept
 {
-    // Initialise output files
+    // Create output directory
     const string pidString = "PID"s + toString(m_pid, 3);
     string baseDir = "./";
     baseDir += pidString;
@@ -166,6 +165,8 @@ bool AzureKinect::initOutput() noexcept
         }
         return false;
     }
+
+    // Determine output filename
     string timeString;
     stringstream ss;
     time_t inTimeT = chrono::system_clock::to_time_t(chrono::system_clock::now());
@@ -177,6 +178,8 @@ bool AzureKinect::initOutput() noexcept
     string videoFile = poseFile;
     videoFile += ".mkv";
     poseFile += ".csv";
+
+    // Create pose file
 
     // Start recording
     // TODO:
@@ -224,6 +227,8 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                 m_errorCallback("Failed to get capture from K4A camera");
             }
             break;
+        } else {
+            k4a_capture_release(captureHandle);
         }
 
         // Get result from tracker
@@ -247,21 +252,24 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                 body.id = k4abt_frame_get_body_id(bodyFrame, 0);
 
                 // Get the body pixel positions for the first detected body
-                vector<bool> bodyPixel(static_cast<size_t>(m_depthWidth) * m_depthHeight);
+                const auto depthWidth = k4a_image_get_width_pixels(depthImage);
+                const auto depthHeight = k4a_image_get_height_pixels(depthImage);
+                vector<bool> bodyPixel(static_cast<size_t>(depthWidth) * depthHeight);
                 const k4a_image_t indexMap = k4abt_frame_get_body_index_map(bodyFrame);
                 const uint8_t* indexMapBuffer = k4a_image_get_buffer(indexMap);
-                for (int i = 0; i < m_depthWidth * m_depthHeight; i++) {
+                for (int i = 0; i < depthWidth * depthHeight; i++) {
                     const uint8_t bodyIndex = indexMapBuffer[i];
                     if (bodyIndex == body.id) {
                         bodyPixel[i] = true;
                     } else {
+                        // K4ABT_BODY_INDEX_MAP_BACKGROUND if not a body
                         bodyPixel[i] = false;
                     }
                 }
                 k4a_image_release(indexMap);
 
                 // Get the joint information
-                vector<Joint> bodyJoint(32);
+                vector<Joint> bodyJoint(K4ABT_JOINT_COUNT);
                 for (auto& joint : body.skeleton.joints) {
                     if (joint.confidence_level >= K4ABT_JOINT_CONFIDENCE_LOW) {
                         const k4a_float3_t& jointPosition = joint.position;
@@ -314,12 +322,16 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
             }
 
             // TODO: Send data to renderer
+            if (m_imageCallback) {
+                m_imageCallback(k4a_image_get_buffer(depthImage), k4a_image_get_width_pixels(depthImage),
+                    k4a_image_get_height_pixels(depthImage), k4a_image_get_stride_bytes(depthImage));
+            }
 
-            k4a_capture_release(originalCapture);
             k4a_image_release(depthImage);
             k4a_image_release(colourImage);
-            k4abt_frame_release(bodyFrame);
+            k4a_capture_release(originalCapture);
         }
+        k4abt_frame_release(bodyFrame);
     }
 
     // Cleanup all data

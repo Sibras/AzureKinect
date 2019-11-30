@@ -49,9 +49,6 @@
     </QtRcc>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include/KinectWidget.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\AzureKinect.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -59,9 +56,20 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="dnn_model_2_0.onnx" />
+    <None Include="$(MSBuildThisFileDirectory)..\..\content\**\*.*" />
+    <None Include="source\DepthImage.frag">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="$(MSBuildThisFileDirectory)..\..\content\**\*.*" />
+    <None Include="source\FullScreenQuad.vert">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="include\AzureKinectWindow.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="include/KinectWidget.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

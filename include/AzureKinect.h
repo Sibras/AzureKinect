@@ -41,9 +41,11 @@ public:
      * Initializes the azure kinect camera.
      * @param error (Optional) The callback used to signal errors.
      * @param ready (Optional) The callback used to signal camera is ready for operations.
+     * @param image (Optional) The callback used to signal updated image data.
      * @returns True if it succeeds, false if it fails.
      */
-    bool init(std::function<void(const std::string&)> error = nullptr, std::function<void()> ready = nullptr) noexcept;
+    bool init(std::function<void(const std::string&)> error = nullptr, std::function<void()> ready = nullptr,
+        std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t)> image = nullptr) noexcept;
 
     /**
      * Notify to start acquisition.
@@ -53,12 +55,12 @@ public:
     void start(uint32_t pid) noexcept;
 
     /** Notify to end acquisition.
-     * @remark This function is asynchronous and may not result in an immediate shutdown.
+     * @note This function is asynchronous and may not result in an immediate shutdown.
      */
     void stop() noexcept;
 
     /** Notify to shutdown.
-     * @remark This function is synchronous and will block until thread has completed.
+     * @note This function is synchronous and will block until thread has completed.
      */
     void shutdown() noexcept;
 
@@ -170,12 +172,9 @@ private:
     std::atomic_uint32_t m_pid = 0;
     k4a_device_t m_device = nullptr;
     k4abt_tracker_t m_tracker = nullptr;
-    int m_depthWidth = 0;
-    int m_depthHeight = 0;
-    int m_imageWidth = 0;
-    int m_imageHeight = 0;
     std::thread m_captureThread;
     std::function<void(const std::string&)> m_errorCallback = nullptr;
+    std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t)> m_imageCallback = nullptr;
 
     [[nodiscard]] bool initCamera() noexcept;
 
@@ -185,7 +184,7 @@ private:
 
     /**
      * Run image acquisition and processing.
-     * @remark init() must be called before this function can be used.
+     * @note init() must be called before this function can be used.
      * @param ready (Optional) The callback used to signal camera is ready for operations.
      * @returns True if it succeeds, false if it fails.
      */

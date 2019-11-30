@@ -1,4 +1,6 @@
 <RCC>
-    <qresource prefix="AzureKinect">
+    <qresource prefix="/AzureKinect">
+        <file>DepthImage.frag</file>
+        <file>FullScreenQuad.vert</file>
     </qresource>
 </RCC>

@@ -36,11 +36,17 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     // Connect required signals/slots
     connect(m_ui.buttonStart, &QPushButton::clicked, this, &AzureKinectWindow::startSlot);
     connect(m_ui.actionExit, &QAction::triggered, this, &AzureKinectWindow::exitSlot);
+    connect(this, &AzureKinectWindow::errorSignal, this, &AzureKinectWindow::errorSlot);
+    connect(this, &AzureKinectWindow::readySignal, this, &AzureKinectWindow::readySlot);
+    connect(this, &AzureKinectWindow::imageSignal, m_ui.openGLWidget, &KinectWidget::imageSlot);
+    connect(m_ui.openGLWidget, &KinectWidget::errorSignal, this, &AzureKinectWindow::errorSlot);
 
     // Start device (uses timer to start once UI is fully loaded so we can receive messages)
     QTimer::singleShot(0, this, [=]() {
         m_kinect.init(bind(&AzureKinectWindow::errorCallback, this, placeholders::_1),
-            bind(&AzureKinectWindow::readyCallback, this));
+            bind(&AzureKinectWindow::readyCallback, this),
+            bind(&AzureKinectWindow::imageCallback, this, placeholders::_1, placeholders::_2, placeholders::_3,
+                placeholders::_4));
     });
 }
 
@@ -75,42 +81,43 @@ void AzureKinectWindow::exitSlot() noexcept
     QCoreApplication::quit();
 }
 
+void AzureKinectWindow::errorSlot(const QString& message) noexcept
+{
+    QMessageBox::critical(this, tr("AzureKinect"), message);
+    exitSlot();
+}
+
+void AzureKinectWindow::readySlot() const noexcept
+{
+    // Enable start button
+    m_ui.buttonStart->setEnabled(true);
+}
+
 void AzureKinectWindow::closeEvent(QCloseEvent* event) noexcept
 {
-    emit exitSlot();
+    exitSlot();
     event->accept();
 }
 
-void AzureKinectWindow::errorCallback(const std::string& message) noexcept
+void AzureKinectWindow::errorCallback(const std::string& message) const noexcept
 {
     // Must ensure that message box is displayed in primary gui thread
-    if (qApp->thread() == QThread::currentThread()) {
-        QMessageBox::critical(this, tr("AzureKinect"), QString::fromStdString(message));
-        emit exitSlot();
-    } else {
-        auto* timer = new QTimer();
-        timer->moveToThread(qApp->thread());
-        timer->setSingleShot(true);
-        connect(timer, &QTimer::timeout, [this, message, timer]() {
-            // main thread
-            QMessageBox::critical(this, tr("AzureKinect"), QString::fromStdString(message));
-            emit exitSlot();
-            delete timer;
-        });
-        QMetaObject::invokeMethod(timer, "start", Qt::BlockingQueuedConnection, Q_ARG(int, 0));
-    }
+    emit errorSignal(QString::fromStdString(message));
 }
 
 void AzureKinectWindow::readyCallback() const noexcept
 {
-    auto* timer = new QTimer();
-    timer->moveToThread(qApp->thread());
-    timer->setSingleShot(true);
-    connect(timer, &QTimer::timeout, [this, timer]() {
-        // Enable start button
-        m_ui.buttonStart->setEnabled(true);
-        delete timer;
-    });
-    QMetaObject::invokeMethod(timer, "start", Qt::BlockingQueuedConnection, Q_ARG(int, 0));
+    emit readySignal();
+}
+
+void AzureKinectWindow::imageCallback(
+    uint8_t* imageData, const uint32_t width, const uint32_t height, const uint32_t stride) noexcept
+{
+    // Need to copy data into local storage
+    m_depthBuffer[1].setRawData(reinterpret_cast<char*>(imageData), height * stride);
+    {
+        m_depthBuffer[0].swap(m_depthBuffer[1]);
+    }
+    emit imageSignal(m_depthBuffer[0].data(), width, height, stride);
 }
 } // namespace Ak

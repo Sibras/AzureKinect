@@ -16,7 +16,14 @@
 
 #include "KinectWidget.h"
 
+#include "AzureKinectWindow.h"
+
 #include <QOpenGLContext>
+#include <QResource>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/type_aligned.hpp>
+using namespace glm;
+using namespace std;
 
 namespace Ak {
 KinectWidget::KinectWidget(QWidget* parent) noexcept
@@ -28,26 +35,148 @@ KinectWidget::~KinectWidget() noexcept
     cleanup();
 }
 
+void KinectWidget::imageSlot(
+    char* imageData, const unsigned width, const unsigned height, const unsigned stride) noexcept
+{
+    // Only inbuilt types can be used as parameters for signal/slot connections. Hence why unsigned must be used instead
+    // of uint32_t as otherwise connections are not triggered properly
+
+    // Copy data into texture
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, stride / 2);
+    glBindTexture(GL_TEXTURE_2D, m_depthTexture);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, imageData);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Signal that widget needs to be rendered with new data
+    update();
+}
+
 void KinectWidget::initializeGL() noexcept
 {
     initializeOpenGLFunctions();
     // Connect cleanup handler
     connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &KinectWidget::cleanup);
-    glEnable(GL_MULTISAMPLE);
-    glDisable(GL_BLEND);
-    glClearColor(0.f, 0.f, 0.f, 0.f);
-    glClearDepth(1.0f);
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Set the cleared back buffer to black
+    glCullFace(GL_BACK);                  // Set back-face culling
+    glEnable(GL_CULL_FACE);               // Enable use of back/front face culling
+    glEnable(GL_DEPTH_TEST);              // Enable use of depth testing
+    glDisable(GL_STENCIL_TEST);           // Disable stencil test for speed
+
+    // Load shaders
+    GLuint vertexShader;
+    if (!loadShader(vertexShader, GL_VERTEX_SHADER, (GLchar*)QResource(":/AzureKinect/FullScreenQuad.vert").data())) {
+        return;
+    }
+    GLuint fragmentShader;
+    if (!loadShader(fragmentShader, GL_FRAGMENT_SHADER, (GLchar*)QResource(":/AzureKinect/DepthImage.frag").data())) {
+        return;
+    }
+    if (!loadShaders(m_depthProgram, vertexShader, fragmentShader)) {
+        return;
+    }
+
+    // Clean up unneeded shaders
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // Clean up unneeded shaders
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // Generate the full screen quad
+    glGenVertexArrays(1, &m_quadVAO);
+    glGenBuffers(1, &m_quadVBO);
+    glGenBuffers(1, &m_quadIBO);
+    glBindVertexArray(m_quadVAO);
+
+    // Create VBO data
+    glBindBuffer(GL_ARRAY_BUFFER, m_quadVBO);
+    GLfloat vertexData[] = {-1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f};
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), nullptr);
+    glEnableVertexAttribArray(0);
+
+    // Create IBO data
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_quadIBO);
+    GLubyte indexData[] = {0, 1, 3, 1, 2, 3};
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_quadIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indexData), indexData, GL_STATIC_DRAW);
+    glBindVertexArray(0);
+
+    // Create depth texture
+    glGenTextures(1, &m_depthTexture);
+    glBindTexture(GL_TEXTURE_2D, m_depthTexture);
+    glTexStorage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, 640, 576);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Setup inverse resolution
+    glGenBuffers(1, &m_inverseResUBO);
+    vec2 inverseRes = 1.0f / vec2(1280.0f, 720.0f);
+    glBindBuffer(GL_UNIFORM_BUFFER, m_inverseResUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(vec2), &inverseRes, GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, m_inverseResUBO);
+
+    // Create the viewProjection buffers
+    glGenBuffers(1, &m_cameraUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, m_cameraUBO);
 }
 
 void KinectWidget::resizeGL(const int width, const int height) noexcept
 {
-    const int side = qMin(width, height);
-    glViewport((width - side) / 2, (height - side) / 2, side, side);
+    // Keep the viewport at a fixed 16:9 ratio
+    int32_t newWidth = width, newHeight = height;
+    do {
+        const int32_t widthScale = ((newHeight * 16) / 9);
+        const int32_t heightScale = ((newWidth * 9) / 16);
+        const int32_t widthOffset = heightScale >= newHeight ? widthScale : newWidth;
+        const int32_t heightOffset = widthScale >= newWidth ? heightScale : newHeight;
+        newWidth = widthOffset;
+        newHeight = heightOffset;
+    } while (newWidth * 9 - newHeight * 16 != 0);
+    m_viewportX = (width - newWidth) / 2;
+    m_viewportY = (height - newHeight) / 2;
+    m_viewportW = newWidth;
+    m_viewportH = newHeight;
+
+    // Update the projection matrix
+    //  If camera is set to wide field of view then FOV=120 otherwise it is 65
+    mat4 viewProjection =
+        perspective(65.0f, static_cast<float>(newWidth) / static_cast<float>(newHeight), 0.1f, 150.0f);
+    glBindBuffer(GL_UNIFORM_BUFFER, m_cameraUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(mat4), &viewProjection, GL_DYNAMIC_DRAW);
+
+    // Update inverse resolution
+    vec2 inverseRes = 1.0f / vec2(static_cast<float>(newWidth), static_cast<float>(newHeight));
+    glBindBuffer(GL_UNIFORM_BUFFER, m_inverseResUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(vec2), &inverseRes, GL_STATIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
 void KinectWidget::paintGL() noexcept
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // Set correct viewport as it gets changed by Qt
+    glViewport(m_viewportX, m_viewportY, m_viewportW, m_viewportH);
+
+    // Render depth image
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glUseProgram(m_depthProgram);
+    glBindVertexArray(m_quadVAO);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, m_depthTexture);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
 }
 
 void KinectWidget::cleanup() noexcept
@@ -55,8 +184,61 @@ void KinectWidget::cleanup() noexcept
     // Make sure the context is current and then destroy all underlying resources.
     makeCurrent();
 
-    // TODO: free resources here
+    // Free all resources
+    glDeleteProgram(m_depthProgram);
+
+    glDeleteBuffers(1, &m_quadVBO);
+    glDeleteBuffers(1, &m_quadIBO);
+    glDeleteVertexArrays(1, &m_quadVAO);
+
+    glDeleteTextures(1, &m_depthTexture);
+
+    glDeleteBuffers(1, &m_inverseResUBO);
+    glDeleteBuffers(1, &m_cameraUBO);
 
     doneCurrent();
+}
+
+bool KinectWidget::loadShader(GLuint& shader, const GLenum shaderType, const GLchar* shaderCode) noexcept
+{
+    // Build and link the shader program
+    shader = glCreateShader(shaderType);
+    glShaderSource(shader, 1, &shaderCode, nullptr);
+    glCompileShader(shader);
+
+    // Check for errors
+    GLint testReturn;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &testReturn);
+    if (testReturn == GL_FALSE) {
+        GLchar infolog[1024];
+        int32_t errorLength;
+        glGetShaderInfoLog(shader, 1024, &errorLength, infolog);
+        emit errorSignal(tr("Failed to compile shader: ") + infolog);
+        glDeleteShader(shader);
+        return false;
+    }
+    return true;
+}
+
+bool KinectWidget::loadShaders(GLuint& shader, const GLuint vertexShader, const GLuint fragmentShader) noexcept
+{
+    // Link the shaders
+    shader = glCreateProgram();
+    glAttachShader(shader, vertexShader);
+    glAttachShader(shader, fragmentShader);
+    glLinkProgram(shader);
+
+    // Check for error in link
+    GLint testReturn;
+    glGetProgramiv(shader, GL_LINK_STATUS, &testReturn);
+    if (testReturn == GL_FALSE) {
+        GLchar infolog[1024];
+        int32_t errorLength;
+        glGetShaderInfoLog(shader, 1024, &errorLength, infolog);
+        emit errorSignal(tr("Failed to link shaders: ") + infolog);
+        glDeleteProgram(shader);
+        return false;
+    }
+    return true;
 }
 } // namespace Ak

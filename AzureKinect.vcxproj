@@ -30,12 +30,12 @@
     <QtMsBuild>$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>.\bin\</OutDir>
-    <IntDir>.\obj\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)bin\</OutDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>.\bin\</OutDir>
-    <IntDir>.\obj\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)bin\</OutDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\</IntDir>
   </PropertyGroup>
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
     <Message Importance="High" Text="QtMsBuild: could not locate qt.targets, qt.props; project may not build correctly." />
@@ -83,6 +83,11 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(QtDllPath)\Qt5Cored.dll $(OutDir)
+copy $(QtDllPath)\Qt5Guid.dll $(OutDir)
+copy $(QtDllPath)\Qt5Widgetsd.dll $(OutDir)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -109,6 +114,11 @@
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(QtDllPath)\Qt5Core.dll $(OutDir)
+copy $(QtDllPath)\Qt5Gui.dll $(OutDir)
+copy $(QtDllPath)\Qt5Widgets.dll $(OutDir)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\AzureKinect.cpp" />
@@ -126,12 +136,14 @@
     <QtRcc Include="source/AzureKinect.qrc" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include/KinectWidget.h" />
+    <QtMoc Include="include/KinectWidget.h" />
     <ClInclude Include="include\AzureKinect.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dnn_model_2_0.onnx" />
     <None Include="packages.config" />
+    <None Include="source\DepthImage.frag" />
+    <None Include="source\FullScreenQuad.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
@@ -142,6 +154,7 @@
     <Import Project="packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.targets" Condition="Exists('packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.targets')" />
     <Import Project="packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.targets" Condition="Exists('packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.targets')" />
     <Import Project="packages\Microsoft.Azure.Kinect.BodyTracking.0.9.4\build\native\Microsoft.Azure.Kinect.BodyTracking.targets" Condition="Exists('packages\Microsoft.Azure.Kinect.BodyTracking.0.9.4\build\native\Microsoft.Azure.Kinect.BodyTracking.targets')" />
+    <Import Project="packages\glm.0.9.9.600\build\native\glm.targets" Condition="Exists('packages\glm.0.9.9.600\build\native\glm.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -151,5 +164,6 @@
     <Error Condition="!Exists('packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.targets'))" />
     <Error Condition="!Exists('packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.0.9.0\build\native\Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.targets'))" />
     <Error Condition="!Exists('packages\Microsoft.Azure.Kinect.BodyTracking.0.9.4\build\native\Microsoft.Azure.Kinect.BodyTracking.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Azure.Kinect.BodyTracking.0.9.4\build\native\Microsoft.Azure.Kinect.BodyTracking.targets'))" />
+    <Error Condition="!Exists('packages\glm.0.9.9.600\build\native\glm.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\glm.0.9.9.600\build\native\glm.targets'))" />
   </Target>
 </Project>
