@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-#include <QOpenGLFunctions_4_3_Core>
+#include <QOpenGLExtraFunctions>
 #include <QOpenGLWidget>
 
 namespace Ak {
 class KinectWidget final
     : public QOpenGLWidget
-    , protected QOpenGLFunctions_4_3_Core
+    , protected QOpenGLExtraFunctions
 {
     Q_OBJECT
 public:
@@ -46,8 +46,13 @@ public slots:
      * @param      depthWidth  The depth image width.
      * @param      depthHeight The depth image height.
      * @param      depthStride The depth image stride.
+     * @param [in] colourImage  The colour image data array.
+     * @param      colourWidth  The colour image width.
+     * @param      colourHeight The colour image height.
+     * @param      colourStride The colour image stride.
      */
-    void imageSlot(char* depthImage, unsigned depthWidth, unsigned depthHeight, unsigned depthStride) noexcept;
+    void imageSlot(char* depthImage, unsigned depthWidth, unsigned depthHeight, unsigned depthStride, char* colourImage,
+        unsigned colourWidth, unsigned colourHeight, unsigned colourStride) noexcept;
 
 signals:
     /**
@@ -76,6 +81,7 @@ private:
     bool m_bodySkeletonImage = true;
 
     GLuint m_depthProgram = 0;
+    GLuint m_colourProgram = 0;
 
     // Screen quad
     GLuint m_quadVAO = 0;
@@ -83,8 +89,9 @@ private:
     GLuint m_quadIBO = 0;
 
     GLuint m_depthTexture = 0;
+    GLuint m_colourTexture = 0;
 
-    // Cmera data
+    // Camera data
     GLuint m_inverseResUBO = 0;
     GLuint m_cameraUBO = 0;
 

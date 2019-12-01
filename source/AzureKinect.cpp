@@ -85,7 +85,7 @@ void AzureKinect::shutdown() noexcept
 }
 
 bool AzureKinect::init(std::function<void(const std::string&)> error, std::function<void()> ready,
-    std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t)> image) noexcept
+    std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t, uint8_t*, uint32_t, uint32_t, uint32_t)> image) noexcept
 {
     // Store callbacks
     m_errorCallback = move(error);
@@ -110,8 +110,9 @@ bool AzureKinect::initCamera() noexcept
     k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
     deviceConfig.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
     deviceConfig.color_resolution = K4A_COLOR_RESOLUTION_720P;
-    deviceConfig.camera_fps = K4A_FRAMES_PER_SECOND_30;
+    deviceConfig.camera_fps = K4A_FRAMES_PER_SECOND_15;
     deviceConfig.color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
+    deviceConfig.synchronized_images_only = true;
     if (k4a_device_start_cameras(m_device, &deviceConfig) != K4A_RESULT_SUCCEEDED) {
         if (m_errorCallback != nullptr) {
             m_errorCallback("Failed to start K4A camera");
@@ -208,9 +209,17 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
     while (!m_shutdown) {
         // Get the capture from the camera
         k4a_capture_t captureHandle = nullptr;
-        const k4a_wait_result_t captureResult = k4a_device_get_capture(m_device, &captureHandle, 0);
+        const k4a_wait_result_t captureResult = k4a_device_get_capture(m_device, &captureHandle, 10);
 
         if (captureResult == K4A_WAIT_RESULT_SUCCEEDED) {
+            // Check if we have valid depth data
+            const k4a_image_t depthImage = k4a_capture_get_depth_image(captureHandle);
+            if (depthImage == nullptr) {
+                k4a_image_release(depthImage);
+                continue;
+            }
+            k4a_image_release(depthImage);
+
             // Send the new capture to the tracker
             const k4a_wait_result_t trackerResult = k4abt_tracker_enqueue_capture(m_tracker, captureHandle, 0);
 
@@ -227,8 +236,6 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                 m_errorCallback("Failed to get capture from K4A camera");
             }
             break;
-        } else {
-            k4a_capture_release(captureHandle);
         }
 
         // Get result from tracker
@@ -238,7 +245,6 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
             // Get the original capture
             const k4a_capture_t originalCapture = k4abt_frame_get_capture(bodyFrame);
             const k4a_image_t depthImage = k4a_capture_get_depth_image(originalCapture);
-            const k4a_image_t colourImage = k4a_capture_get_color_image(originalCapture);
 
             // Get the tracker data
             if (k4abt_frame_get_num_bodies(bodyFrame) > 0) {
@@ -323,12 +329,15 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
 
             // TODO: Send data to renderer
             if (m_imageCallback) {
+                const k4a_image_t colourImage = k4a_capture_get_color_image(originalCapture);
                 m_imageCallback(k4a_image_get_buffer(depthImage), k4a_image_get_width_pixels(depthImage),
-                    k4a_image_get_height_pixels(depthImage), k4a_image_get_stride_bytes(depthImage));
+                    k4a_image_get_height_pixels(depthImage), k4a_image_get_stride_bytes(depthImage),
+                    k4a_image_get_buffer(colourImage), k4a_image_get_width_pixels(colourImage),
+                    k4a_image_get_height_pixels(colourImage), k4a_image_get_stride_bytes(colourImage));
+                k4a_image_release(colourImage);
             }
 
             k4a_image_release(depthImage);
-            k4a_image_release(colourImage);
             k4a_capture_release(originalCapture);
         }
         k4abt_frame_release(bodyFrame);

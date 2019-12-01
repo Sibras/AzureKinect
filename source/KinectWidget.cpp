@@ -44,22 +44,37 @@ void KinectWidget::setRenderOptions(
     m_bodySkeletonImage = bodySkeleton;
 }
 
-void KinectWidget::imageSlot(
-    char* depthImage, const unsigned depthWidth, const unsigned depthHeight, const unsigned depthStride) noexcept
+void KinectWidget::imageSlot(char* const depthImage, const unsigned depthWidth, const unsigned depthHeight,
+    const unsigned depthStride, char* const colourImage, const unsigned colourWidth, const unsigned colourHeight,
+    const unsigned colourStride) noexcept
 {
     // Only inbuilt types can be used as parameters for signal/slot connections. Hence why unsigned must be used instead
     // of uint32_t as otherwise connections are not triggered properly
 
     if (m_depthImage) {
         // Copy depth image data
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, depthStride / 2);
+        if (depthStride / 2 != depthWidth) {
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, depthStride / 2);
+        }
         glBindTexture(GL_TEXTURE_2D, m_depthTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, depthWidth, depthHeight, 0, GL_DEPTH_COMPONENT,
-            GL_UNSIGNED_SHORT, depthImage);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, depthWidth, depthHeight, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT,
+            reinterpret_cast<const GLvoid*>(depthImage));
+        if (depthStride / 2 != depthWidth) {
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        }
         glBindTexture(GL_TEXTURE_2D, 0);
     } else if (m_colourImage) {
-        // TODO:****
+        // Copy colour image data
+        if (colourStride / 4 != colourWidth) {
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, colourStride / 4);
+        }
+        glBindTexture(GL_TEXTURE_2D, m_colourTexture);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colourWidth, colourHeight, GL_BGRA, GL_UNSIGNED_BYTE,
+            reinterpret_cast<const GLvoid*>(colourImage));
+        if (colourStride / 4 != colourWidth) {
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        }
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     if (m_bodyShadowImage) {
@@ -98,10 +113,14 @@ void KinectWidget::initializeGL() noexcept
     if (!loadShaders(m_depthProgram, vertexShader, fragmentShader)) {
         return;
     }
-
-    // Clean up unneeded shaders
-    glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
+
+    if (!loadShader(fragmentShader, GL_FRAGMENT_SHADER, (GLchar*)QResource(":/AzureKinect/ColourImage.frag").data())) {
+        return;
+    }
+    if (!loadShaders(m_colourProgram, vertexShader, fragmentShader)) {
+        return;
+    }
 
     // Clean up unneeded shaders
     glDeleteShader(vertexShader);
@@ -130,11 +149,26 @@ void KinectWidget::initializeGL() noexcept
     // Create depth texture
     glGenTextures(1, &m_depthTexture);
     glBindTexture(GL_TEXTURE_2D, m_depthTexture);
-    glTexStorage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, 640, 576);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, 640, 576);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    std::vector<uint8_t> initialBlank(1280 * 720 * 10, 0);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 640, 576, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT,
+        reinterpret_cast<const GLvoid*>(initialBlank.data()));
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Create colour texture
+    glGenTextures(1, &m_colourTexture);
+    glBindTexture(GL_TEXTURE_2D, m_colourTexture);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 1280, 720);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1280, 720, GL_BGRA, GL_UNSIGNED_BYTE,
+        reinterpret_cast<const GLvoid*>(initialBlank.data()));
     glBindTexture(GL_TEXTURE_2D, 0);
 
     // Setup inverse resolution
@@ -201,7 +235,16 @@ void KinectWidget::paintGL() noexcept
         glDepthMask(GL_TRUE);
     } else if (m_colourImage) {
         // Render colour image
-        // TODO:****
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        glUseProgram(m_colourProgram);
+        glBindVertexArray(m_quadVAO);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, m_colourTexture);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
+
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
     }
 
     if (m_bodyShadowImage) {
@@ -228,6 +271,7 @@ void KinectWidget::cleanup() noexcept
     glDeleteVertexArrays(1, &m_quadVAO);
 
     glDeleteTextures(1, &m_depthTexture);
+    glDeleteTextures(1, &m_colourTexture);
 
     glDeleteBuffers(1, &m_inverseResUBO);
     glDeleteBuffers(1, &m_cameraUBO);

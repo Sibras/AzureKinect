@@ -142,6 +142,7 @@ copy $(QtDllPath)\Qt5Widgets.dll $(OutDir)</Command>
   <ItemGroup>
     <None Include="dnn_model_2_0.onnx" />
     <None Include="packages.config" />
+    <None Include="source\ColourImage.frag" />
     <None Include="source\DepthImage.frag" />
     <None Include="source\FullScreenQuad.vert" />
   </ItemGroup>

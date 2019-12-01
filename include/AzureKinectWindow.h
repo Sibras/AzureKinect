@@ -20,6 +20,7 @@
 
 #include <QIntValidator>
 #include <QtWidgets/QMainWindow>
+#include <vector>
 
 namespace Ak {
 class AzureKinectWindow final : public QMainWindow
@@ -60,7 +61,7 @@ public slots:
 private:
     Ui::AzureKinectClass m_ui;
     QValidator* m_validatorPID = nullptr;
-    QByteArray m_imageBuffer[2];
+    std::vector<uint8_t> m_imageBuffer[2];
     bool m_depthImage = true;
     bool m_bodyShadowImage = true;
     bool m_bodySkeletonImage = true;
@@ -92,8 +93,13 @@ private:
      * @param      depthWidth  The depth image width.
      * @param      depthHeight The depth image height.
      * @param      depthStride The depth image stride.
+     * @param [in] colourImage  The colour image data array.
+     * @param      colourWidth  The colour image width.
+     * @param      colourHeight The colour image height.
+     * @param      colourStride The colour image stride.
      */
-    void imageCallback(uint8_t* depthImage, uint32_t depthWidth, uint32_t depthHeight, uint32_t depthStride) noexcept;
+    void imageCallback(uint8_t* depthImage, uint32_t depthWidth, uint32_t depthHeight, uint32_t depthStride,
+        uint8_t* colourImage, uint32_t colourWidth, uint32_t colourHeight, uint32_t colourStride) noexcept;
 
 signals:
     /**
@@ -116,7 +122,12 @@ signals:
      * @param      depthWidth  The depth image width.
      * @param      depthHeight The depth image height.
      * @param      depthStride The depth image stride.
+     * @param [in] colourImage  The colour image data array.
+     * @param      colourWidth  The colour image width.
+     * @param      colourHeight The colour image height.
+     * @param      colourStride The colour image stride.
      */
-    void imageSignal(char* depthImage, unsigned depthWidth, unsigned depthHeight, unsigned depthStride) const;
+    void imageSignal(char* depthImage, unsigned depthWidth, unsigned depthHeight, unsigned depthStride,
+        char* colourImage, unsigned colourWidth, unsigned colourHeight, unsigned colourStride) const;
 };
 } // namespace Ak

@@ -64,6 +64,10 @@
     <None Include="source\FullScreenQuad.vert">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="$(MSBuildThisFileDirectory)..\..\content\**\*.*" />
+    <None Include="source\ColourImage.frag">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="include\AzureKinectWindow.h">

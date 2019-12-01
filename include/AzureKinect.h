@@ -45,7 +45,8 @@ public:
      * @returns True if it succeeds, false if it fails.
      */
     bool init(std::function<void(const std::string&)> error = nullptr, std::function<void()> ready = nullptr,
-        std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t)> image = nullptr) noexcept;
+        std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t, uint8_t*, uint32_t, uint32_t, uint32_t)> image =
+            nullptr) noexcept;
 
     /**
      * Notify to start acquisition.
@@ -174,7 +175,8 @@ private:
     k4abt_tracker_t m_tracker = nullptr;
     std::thread m_captureThread;
     std::function<void(const std::string&)> m_errorCallback = nullptr;
-    std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t)> m_imageCallback = nullptr;
+    std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t, uint8_t*, uint32_t, uint32_t, uint32_t)>
+        m_imageCallback = nullptr;
 
     [[nodiscard]] bool initCamera() noexcept;
 
