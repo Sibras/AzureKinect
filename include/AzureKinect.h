@@ -37,6 +37,33 @@ public:
 
     AzureKinect& operator=(AzureKinect&& other) noexcept = delete;
 
+    class KinectImage
+    {
+    public:
+        KinectImage() = default;
+
+        KinectImage(const KinectImage& other) = default;
+
+        KinectImage(KinectImage&& other) noexcept = default;
+
+        KinectImage& operator=(const KinectImage& other) = default;
+
+        KinectImage& operator=(KinectImage&& other) noexcept = default;
+
+        ~KinectImage() = default;
+
+        KinectImage(uint8_t* image, int32_t width, int32_t height, int32_t stride);
+
+        uint8_t* m_image;
+        int32_t m_width;
+        int32_t m_height;
+        int32_t m_stride;
+    };
+
+    using errorCallback = std::function<void(const std::string&)>;
+    using readyCallback = std::function<void()>;
+    using imageCallback = std::function<void(const KinectImage&, const KinectImage&)>;
+
     /**
      * Initializes the azure kinect camera.
      * @param error (Optional) The callback used to signal errors.
@@ -44,9 +71,7 @@ public:
      * @param image (Optional) The callback used to signal updated image data.
      * @returns True if it succeeds, false if it fails.
      */
-    bool init(std::function<void(const std::string&)> error = nullptr, std::function<void()> ready = nullptr,
-        std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t, uint8_t*, uint32_t, uint32_t, uint32_t)> image =
-            nullptr) noexcept;
+    bool init(errorCallback error = nullptr, readyCallback ready = nullptr, imageCallback image = nullptr) noexcept;
 
     /**
      * Notify to start acquisition.
@@ -174,9 +199,8 @@ private:
     k4a_device_t m_device = nullptr;
     k4abt_tracker_t m_tracker = nullptr;
     std::thread m_captureThread;
-    std::function<void(const std::string&)> m_errorCallback = nullptr;
-    std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t, uint8_t*, uint32_t, uint32_t, uint32_t)>
-        m_imageCallback = nullptr;
+    errorCallback m_errorCallback = nullptr;
+    imageCallback m_imageCallback = nullptr;
 
     [[nodiscard]] bool initCamera() noexcept;
 

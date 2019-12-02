@@ -44,34 +44,32 @@ void KinectWidget::setRenderOptions(
     m_bodySkeletonImage = bodySkeleton;
 }
 
-void KinectWidget::imageSlot(char* const depthImage, const unsigned depthWidth, const unsigned depthHeight,
-    const unsigned depthStride, char* const colourImage, const unsigned colourWidth, const unsigned colourHeight,
-    const unsigned colourStride) noexcept
+void KinectWidget::imageSlot(AzureKinect::KinectImage depthImage, AzureKinect::KinectImage colourImage)
 {
     // Only inbuilt types can be used as parameters for signal/slot connections. Hence why unsigned must be used instead
     // of uint32_t as otherwise connections are not triggered properly
 
     if (m_depthImage) {
         // Copy depth image data
-        if (depthStride / 2 != depthWidth) {
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, depthStride / 2);
+        if (depthImage.m_stride / 2 != depthImage.m_width) {
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, depthImage.m_stride / 2);
         }
         glBindTexture(GL_TEXTURE_2D, m_depthTexture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, depthWidth, depthHeight, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT,
-            reinterpret_cast<const GLvoid*>(depthImage));
-        if (depthStride / 2 != depthWidth) {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, depthImage.m_width, depthImage.m_height, GL_DEPTH_COMPONENT,
+            GL_UNSIGNED_SHORT, reinterpret_cast<const GLvoid*>(depthImage.m_image));
+        if (depthImage.m_stride / 2 != depthImage.m_width) {
             glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
         }
         glBindTexture(GL_TEXTURE_2D, 0);
     } else if (m_colourImage) {
         // Copy colour image data
-        if (colourStride / 4 != colourWidth) {
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, colourStride / 4);
+        if (colourImage.m_stride / 4 != colourImage.m_width) {
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, colourImage.m_stride / 4);
         }
         glBindTexture(GL_TEXTURE_2D, m_colourTexture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colourWidth, colourHeight, GL_BGRA, GL_UNSIGNED_BYTE,
-            reinterpret_cast<const GLvoid*>(colourImage));
-        if (colourStride / 4 != colourWidth) {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colourImage.m_width, colourImage.m_height, GL_BGRA, GL_UNSIGNED_BYTE,
+            reinterpret_cast<const GLvoid*>(colourImage.m_image));
+        if (colourImage.m_stride / 4 != colourImage.m_width) {
             glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
         }
         glBindTexture(GL_TEXTURE_2D, 0);

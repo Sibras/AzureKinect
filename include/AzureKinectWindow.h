@@ -98,8 +98,8 @@ private:
      * @param      colourHeight The colour image height.
      * @param      colourStride The colour image stride.
      */
-    void imageCallback(uint8_t* depthImage, uint32_t depthWidth, uint32_t depthHeight, uint32_t depthStride,
-        uint8_t* colourImage, uint32_t colourWidth, uint32_t colourHeight, uint32_t colourStride) noexcept;
+    void imageCallback(
+        const AzureKinect::KinectImage& depthImage, const AzureKinect::KinectImage& colourImage) noexcept;
 
 signals:
     /**
@@ -127,7 +127,6 @@ signals:
      * @param      colourHeight The colour image height.
      * @param      colourStride The colour image stride.
      */
-    void imageSignal(char* depthImage, unsigned depthWidth, unsigned depthHeight, unsigned depthStride,
-        char* colourImage, unsigned colourWidth, unsigned colourHeight, unsigned colourStride) const;
+    void imageSignal(AzureKinect::KinectImage depthImage, AzureKinect::KinectImage colourImage);
 };
 } // namespace Ak

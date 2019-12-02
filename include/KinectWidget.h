@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include "AzureKinect.h"
+
 #include <QOpenGLExtraFunctions>
 #include <QOpenGLWidget>
 
@@ -51,8 +53,7 @@ public slots:
      * @param      colourHeight The colour image height.
      * @param      colourStride The colour image stride.
      */
-    void imageSlot(char* depthImage, unsigned depthWidth, unsigned depthHeight, unsigned depthStride, char* colourImage,
-        unsigned colourWidth, unsigned colourHeight, unsigned colourStride) noexcept;
+    void imageSlot(AzureKinect::KinectImage depthImage, AzureKinect::KinectImage colourImage);
 
 signals:
     /**

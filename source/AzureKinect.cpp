@@ -84,8 +84,15 @@ void AzureKinect::shutdown() noexcept
     }
 }
 
-bool AzureKinect::init(std::function<void(const std::string&)> error, std::function<void()> ready,
-    std::function<void(uint8_t*, uint32_t, uint32_t, uint32_t, uint8_t*, uint32_t, uint32_t, uint32_t)> image) noexcept
+AzureKinect::KinectImage::KinectImage(
+    uint8_t* const image, const int32_t width, const int32_t height, const int32_t stride)
+    : m_image(image)
+    , m_width(width)
+    , m_height(height)
+    , m_stride(stride)
+{}
+
+bool AzureKinect::init(errorCallback error, readyCallback ready, imageCallback image) noexcept
 {
     // Store callbacks
     m_errorCallback = move(error);
@@ -330,10 +337,11 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
             // TODO: Send data to renderer
             if (m_imageCallback) {
                 const k4a_image_t colourImage = k4a_capture_get_color_image(originalCapture);
-                m_imageCallback(k4a_image_get_buffer(depthImage), k4a_image_get_width_pixels(depthImage),
-                    k4a_image_get_height_pixels(depthImage), k4a_image_get_stride_bytes(depthImage),
-                    k4a_image_get_buffer(colourImage), k4a_image_get_width_pixels(colourImage),
-                    k4a_image_get_height_pixels(colourImage), k4a_image_get_stride_bytes(colourImage));
+                KinectImage depthPass = {k4a_image_get_buffer(depthImage), k4a_image_get_width_pixels(depthImage),
+                    k4a_image_get_height_pixels(depthImage), k4a_image_get_stride_bytes(depthImage)};
+                KinectImage colourPass = {k4a_image_get_buffer(colourImage), k4a_image_get_width_pixels(colourImage),
+                    k4a_image_get_height_pixels(colourImage), k4a_image_get_stride_bytes(colourImage)};
+                m_imageCallback(depthPass, colourPass);
                 k4a_image_release(colourImage);
             }
 
