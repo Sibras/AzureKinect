@@ -35,25 +35,22 @@ public:
      * Sets what types of data should be rendered.
      * @param depthImage   True to render depth image.
      * @param colourImage  True to render colour image.
+     * @param irImage      True to render IR image.
      * @param bodyShadow   True to render body shadow.
      * @param bodySkeleton True to render body skeleton.
      */
-    void setRenderOptions(bool depthImage, bool colourImage, bool bodyShadow, bool bodySkeleton);
+    void setRenderOptions(bool depthImage, bool colourImage, bool irImage, bool bodyShadow, bool bodySkeleton) noexcept;
 
 public slots:
 
     /**
      * Slot used to receive thread safe, asynchronous image information.
-     * @param [in] depthImage  The depth image data array.
-     * @param      depthWidth  The depth image width.
-     * @param      depthHeight The depth image height.
-     * @param      depthStride The depth image stride.
-     * @param [in] colourImage  The colour image data array.
-     * @param      colourWidth  The colour image width.
-     * @param      colourHeight The colour image height.
-     * @param      colourStride The colour image stride.
+     * @param depthImage  The depth image data.
+     * @param colourImage The colour image data.
+     * @param irImage     The IR image data.
      */
-    void imageSlot(AzureKinect::KinectImage depthImage, AzureKinect::KinectImage colourImage);
+    void imageSlot(AzureKinect::KinectImage depthImage, AzureKinect::KinectImage colourImage,
+        AzureKinect::KinectImage irImage) noexcept;
 
 signals:
     /**
@@ -78,11 +75,13 @@ private:
 
     bool m_depthImage = true;
     bool m_colourImage = false;
+    bool m_irImage = false;
     bool m_bodyShadowImage = true;
     bool m_bodySkeletonImage = true;
 
     GLuint m_depthProgram = 0;
     GLuint m_colourProgram = 0;
+    GLuint m_irProgram = 0;
 
     // Screen quad
     GLuint m_quadVAO = 0;
@@ -91,6 +90,7 @@ private:
 
     GLuint m_depthTexture = 0;
     GLuint m_colourTexture = 0;
+    GLuint m_irTexture = 0;
 
     // Camera data
     GLuint m_inverseResUBO = 0;

@@ -121,10 +121,13 @@ bool AzureKinect::initCamera() noexcept
     deviceConfig.color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
     deviceConfig.synchronized_images_only = true;
     if (k4a_device_start_cameras(m_device, &deviceConfig) != K4A_RESULT_SUCCEEDED) {
-        if (m_errorCallback != nullptr) {
-            m_errorCallback("Failed to start K4A camera");
+        k4a_device_stop_cameras(m_device);
+        if (k4a_device_start_cameras(m_device, &deviceConfig) != K4A_RESULT_SUCCEEDED) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Failed to start K4A camera");
+            }
+            return false;
         }
-        return false;
     }
 
     // Get calibration information
@@ -337,12 +340,16 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
             // TODO: Send data to renderer
             if (m_imageCallback) {
                 const k4a_image_t colourImage = k4a_capture_get_color_image(originalCapture);
+                const k4a_image_t irImage = k4a_capture_get_ir_image(originalCapture);
                 KinectImage depthPass = {k4a_image_get_buffer(depthImage), k4a_image_get_width_pixels(depthImage),
                     k4a_image_get_height_pixels(depthImage), k4a_image_get_stride_bytes(depthImage)};
                 KinectImage colourPass = {k4a_image_get_buffer(colourImage), k4a_image_get_width_pixels(colourImage),
                     k4a_image_get_height_pixels(colourImage), k4a_image_get_stride_bytes(colourImage)};
-                m_imageCallback(depthPass, colourPass);
+                KinectImage irPass = {k4a_image_get_buffer(irImage), k4a_image_get_width_pixels(irImage),
+                    k4a_image_get_height_pixels(irImage), k4a_image_get_stride_bytes(irImage)};
+                m_imageCallback(depthPass, colourPass, irPass);
                 k4a_image_release(colourImage);
+                k4a_image_release(irImage);
             }
 
             k4a_image_release(depthImage);

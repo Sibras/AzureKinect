@@ -49,6 +49,7 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     connect(m_ui.openGLWidget, &KinectWidget::errorSignal, this, &AzureKinectWindow::errorSlot);
     connect(m_ui.actionDepth_Image, &QAction::triggered, this, &AzureKinectWindow::depthImageSlot);
     connect(m_ui.actionColour_Image, &QAction::triggered, this, &AzureKinectWindow::colourImageSlot);
+    connect(m_ui.actionIR_Image, &QAction::triggered, this, &AzureKinectWindow::irImageSlot);
     connect(m_ui.actionBody_Shadow, &QAction::triggered, this, &AzureKinectWindow::bodyShadowSlot);
     connect(m_ui.actionBody_Skeleton, &QAction::triggered, this, &AzureKinectWindow::bodySkeletonSlot);
 
@@ -56,7 +57,7 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     QTimer::singleShot(0, this, [=]() {
         m_kinect.init(bind(&AzureKinectWindow::errorCallback, this, placeholders::_1),
             bind(&AzureKinectWindow::readyCallback, this),
-            bind(&AzureKinectWindow::imageCallback, this, placeholders::_1, placeholders::_2));
+            bind(&AzureKinectWindow::imageCallback, this, placeholders::_1, placeholders::_2, placeholders::_3));
     });
 }
 
@@ -107,33 +108,55 @@ void AzureKinectWindow::depthImageSlot() noexcept
 {
     m_depthImage = true;
     // Only 1 of depth/colour image can be selected at a time so disable the current one and enable the other
+    m_colourImage = false;
+    m_irImage = false;
     m_ui.actionDepth_Image->setChecked(true);
-    m_ui.actionDepth_Image->setDisabled(true);
+    m_ui.actionDepth_Image->setEnabled(false);
     m_ui.actionColour_Image->setChecked(false);
     m_ui.actionColour_Image->setEnabled(true);
-    m_ui.openGLWidget->setRenderOptions(m_depthImage, !m_depthImage, m_bodyShadowImage, m_bodySkeletonImage);
+    m_ui.actionIR_Image->setChecked(false);
+    m_ui.actionIR_Image->setEnabled(true);
+    m_ui.openGLWidget->setRenderOptions(m_depthImage, m_colourImage, m_irImage, m_bodyShadowImage, m_bodySkeletonImage);
 }
 
 void AzureKinectWindow::colourImageSlot() noexcept
 {
+    m_colourImage = true;
     m_depthImage = false;
-    m_ui.actionColour_Image->setChecked(true);
-    m_ui.actionColour_Image->setDisabled(true);
+    m_irImage = false;
     m_ui.actionDepth_Image->setChecked(false);
     m_ui.actionDepth_Image->setEnabled(true);
-    m_ui.openGLWidget->setRenderOptions(m_depthImage, !m_depthImage, m_bodyShadowImage, m_bodySkeletonImage);
+    m_ui.actionColour_Image->setChecked(true);
+    m_ui.actionColour_Image->setEnabled(false);
+    m_ui.actionIR_Image->setChecked(false);
+    m_ui.actionIR_Image->setEnabled(true);
+    m_ui.openGLWidget->setRenderOptions(m_depthImage, m_colourImage, m_irImage, m_bodyShadowImage, m_bodySkeletonImage);
+}
+
+void AzureKinectWindow::irImageSlot() noexcept
+{
+    m_irImage = true;
+    m_depthImage = false;
+    m_colourImage = false;
+    m_ui.actionDepth_Image->setChecked(false);
+    m_ui.actionDepth_Image->setEnabled(true);
+    m_ui.actionColour_Image->setChecked(false);
+    m_ui.actionColour_Image->setEnabled(true);
+    m_ui.actionIR_Image->setChecked(true);
+    m_ui.actionIR_Image->setEnabled(false);
+    m_ui.openGLWidget->setRenderOptions(m_depthImage, m_colourImage, m_irImage, m_bodyShadowImage, m_bodySkeletonImage);
 }
 
 void AzureKinectWindow::bodyShadowSlot() noexcept
 {
     m_bodyShadowImage = m_ui.actionBody_Shadow->isChecked();
-    m_ui.openGLWidget->setRenderOptions(m_depthImage, !m_depthImage, m_bodyShadowImage, m_bodySkeletonImage);
+    m_ui.openGLWidget->setRenderOptions(m_depthImage, m_colourImage, m_irImage, m_bodyShadowImage, m_bodySkeletonImage);
 }
 
 void AzureKinectWindow::bodySkeletonSlot() noexcept
 {
     m_bodySkeletonImage = m_ui.actionBody_Skeleton->isChecked();
-    m_ui.openGLWidget->setRenderOptions(m_depthImage, !m_depthImage, m_bodyShadowImage, m_bodySkeletonImage);
+    m_ui.openGLWidget->setRenderOptions(m_depthImage, m_colourImage, m_irImage, m_bodyShadowImage, m_bodySkeletonImage);
 }
 
 void AzureKinectWindow::closeEvent(QCloseEvent* event) noexcept
@@ -153,8 +176,8 @@ void AzureKinectWindow::readyCallback() const noexcept
     emit readySignal();
 }
 
-void AzureKinectWindow::imageCallback(
-    const AzureKinect::KinectImage& depthImage, const AzureKinect::KinectImage& colourImage) noexcept
+void AzureKinectWindow::imageCallback(const AzureKinect::KinectImage& depthImage,
+    const AzureKinect::KinectImage& colourImage, const AzureKinect::KinectImage& irImage) noexcept
 {
     // Need to copy data into local storage
     if (m_depthImage) {
@@ -163,12 +186,18 @@ void AzureKinectWindow::imageCallback(
         }
         m_imageBuffer[1].insert(m_imageBuffer[1].begin(), depthImage.m_image,
             depthImage.m_image + (static_cast<size_t>(depthImage.m_height) * depthImage.m_stride));
-    } else {
+    } else if (m_colourImage) {
         if (colourImage.m_image == nullptr) {
             return;
         }
         m_imageBuffer[1].insert(m_imageBuffer[1].begin(), colourImage.m_image,
             colourImage.m_image + (static_cast<size_t>(colourImage.m_height) * colourImage.m_stride));
+    } else if (m_irImage) {
+        if (irImage.m_image == nullptr) {
+            return;
+        }
+        m_imageBuffer[1].insert(m_imageBuffer[1].begin(), irImage.m_image,
+            irImage.m_image + (static_cast<size_t>(irImage.m_height) * irImage.m_stride));
     }
     m_imageBuffer[0].swap(m_imageBuffer[1]);
     if (m_bodyShadowImage) {
@@ -181,6 +210,8 @@ void AzureKinectWindow::imageCallback(
     depthCopy.m_image = m_imageBuffer[0].data();
     auto colourCopy = colourImage;
     colourCopy.m_image = m_imageBuffer[0].data();
-    emit imageSignal(depthCopy, colourCopy);
+    auto irCopy = irImage;
+    irCopy.m_image = m_imageBuffer[0].data();
+    emit imageSignal(depthCopy, colourCopy, irCopy);
 }
 } // namespace Ak

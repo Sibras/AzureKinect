@@ -152,6 +152,7 @@
     </property>
     <addaction name="actionDepth_Image"/>
     <addaction name="actionColour_Image"/>
+    <addaction name="actionIR_Image"/>
     <addaction name="actionBody_Shadow"/>
     <addaction name="actionBody_Skeleton"/>
    </widget>
@@ -206,6 +207,14 @@
    </property>
    <property name="text">
     <string>Body Skeleton</string>
+   </property>
+  </action>
+  <action name="actionIR_Image">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>IR Image</string>
    </property>
   </action>
  </widget>

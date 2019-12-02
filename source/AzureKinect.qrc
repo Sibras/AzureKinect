@@ -3,5 +3,6 @@
         <file>DepthImage.frag</file>
         <file>FullScreenQuad.vert</file>
         <file>ColourImage.frag</file>
+        <file>IRImage.frag</file>
     </qresource>
 </RCC>

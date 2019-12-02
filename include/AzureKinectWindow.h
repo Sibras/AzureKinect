@@ -52,6 +52,9 @@ public slots:
     /** Slot used to select display of colour image */
     void colourImageSlot() noexcept;
 
+    /** Slot used to select display of IR image */
+    void irImageSlot() noexcept;
+
     /** Slot used to select display of body shadow */
     void bodyShadowSlot() noexcept;
 
@@ -63,6 +66,8 @@ private:
     QValidator* m_validatorPID = nullptr;
     std::vector<uint8_t> m_imageBuffer[2];
     bool m_depthImage = true;
+    bool m_colourImage = false;
+    bool m_irImage = false;
     bool m_bodyShadowImage = true;
     bool m_bodySkeletonImage = true;
     bool m_started = false;
@@ -89,17 +94,12 @@ private:
 
     /**
      * Callback used by the camera thread when new image information is available.
-     * @param [in] depthImage  The depth image data array.
-     * @param      depthWidth  The depth image width.
-     * @param      depthHeight The depth image height.
-     * @param      depthStride The depth image stride.
-     * @param [in] colourImage  The colour image data array.
-     * @param      colourWidth  The colour image width.
-     * @param      colourHeight The colour image height.
-     * @param      colourStride The colour image stride.
+     * @param depthImage  The depth image data.
+     * @param colourImage The colour image data.
+     * @param irImage     The IR image data.
      */
-    void imageCallback(
-        const AzureKinect::KinectImage& depthImage, const AzureKinect::KinectImage& colourImage) noexcept;
+    void imageCallback(const AzureKinect::KinectImage& depthImage, const AzureKinect::KinectImage& colourImage,
+        const AzureKinect::KinectImage& irImage) noexcept;
 
 signals:
     /**
@@ -118,15 +118,11 @@ signals:
     /**
      * Signal used to pass asynchronous thread safe image data.
      * @note This is required by @imageCallback.
-     * @param [in] depthImage  The depth image data array.
-     * @param      depthWidth  The depth image width.
-     * @param      depthHeight The depth image height.
-     * @param      depthStride The depth image stride.
-     * @param [in] colourImage  The colour image data array.
-     * @param      colourWidth  The colour image width.
-     * @param      colourHeight The colour image height.
-     * @param      colourStride The colour image stride.
+     * @param depthImage  The depth image data.
+     * @param colourImage The colour image data.
+     * @param irImage     The IR image data.
      */
-    void imageSignal(AzureKinect::KinectImage depthImage, AzureKinect::KinectImage colourImage);
+    void imageSignal(AzureKinect::KinectImage depthImage, AzureKinect::KinectImage colourImage,
+        AzureKinect::KinectImage irImage) const;
 };
 } // namespace Ak
