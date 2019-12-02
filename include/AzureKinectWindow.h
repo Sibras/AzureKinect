@@ -20,6 +20,7 @@
 
 #include <QIntValidator>
 #include <QtWidgets/QMainWindow>
+#include <array>
 #include <vector>
 
 namespace Ak {
@@ -64,7 +65,8 @@ public slots:
 private:
     Ui::AzureKinectClass m_ui;
     QValidator* m_validatorPID = nullptr;
-    std::vector<uint8_t> m_imageBuffer[2];
+    std::array<std::vector<uint8_t>, 15> m_imageBuffer;
+    uint32_t m_bufferIndex = 0;
     bool m_depthImage = true;
     bool m_colourImage = false;
     bool m_irImage = false;

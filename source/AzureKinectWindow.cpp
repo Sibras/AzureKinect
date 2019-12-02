@@ -36,8 +36,9 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     m_ui.lineEditPID->setValidator(m_validatorPID);
 
     // Reserve initial memory
-    m_imageBuffer[0].reserve(1280 * 720 * 40);
-    m_imageBuffer[1].reserve(1280 * 720 * 40);
+    for (auto& i : m_imageBuffer) {
+        i.reserve(1280 * 720 * 4);
+    }
 
     // Connect required signals/slots
     connect(m_ui.buttonStart, &QPushButton::clicked, this, &AzureKinectWindow::startSlot);
@@ -180,26 +181,28 @@ void AzureKinectWindow::imageCallback(const AzureKinect::KinectImage& depthImage
     const AzureKinect::KinectImage& colourImage, const AzureKinect::KinectImage& irImage) noexcept
 {
     // Need to copy data into local storage
+    ++m_bufferIndex;
+    m_bufferIndex = m_bufferIndex < m_imageBuffer.size() ? m_bufferIndex : 0;
     if (m_depthImage) {
         if (depthImage.m_image == nullptr) {
             return;
         }
-        m_imageBuffer[1].insert(m_imageBuffer[1].begin(), depthImage.m_image,
+        m_imageBuffer[m_bufferIndex].insert(m_imageBuffer[m_bufferIndex].begin(), depthImage.m_image,
             depthImage.m_image + (static_cast<size_t>(depthImage.m_height) * depthImage.m_stride));
     } else if (m_colourImage) {
         if (colourImage.m_image == nullptr) {
             return;
         }
-        m_imageBuffer[1].insert(m_imageBuffer[1].begin(), colourImage.m_image,
+        m_imageBuffer[m_bufferIndex].insert(m_imageBuffer[m_bufferIndex].begin(), colourImage.m_image,
             colourImage.m_image + (static_cast<size_t>(colourImage.m_height) * colourImage.m_stride));
     } else if (m_irImage) {
         if (irImage.m_image == nullptr) {
             return;
         }
-        m_imageBuffer[1].insert(m_imageBuffer[1].begin(), irImage.m_image,
+        m_imageBuffer[m_bufferIndex].insert(m_imageBuffer[m_bufferIndex].begin(), irImage.m_image,
             irImage.m_image + (static_cast<size_t>(irImage.m_height) * irImage.m_stride));
     }
-    m_imageBuffer[0].swap(m_imageBuffer[1]);
+
     if (m_bodyShadowImage) {
         // TODO:*********
     }
@@ -207,11 +210,11 @@ void AzureKinectWindow::imageCallback(const AzureKinect::KinectImage& depthImage
         // TODO:*********
     }
     auto depthCopy = depthImage;
-    depthCopy.m_image = m_imageBuffer[0].data();
+    depthCopy.m_image = m_imageBuffer[m_bufferIndex].data();
     auto colourCopy = colourImage;
-    colourCopy.m_image = m_imageBuffer[0].data();
+    colourCopy.m_image = m_imageBuffer[m_bufferIndex].data();
     auto irCopy = irImage;
-    irCopy.m_image = m_imageBuffer[0].data();
+    irCopy.m_image = m_imageBuffer[m_bufferIndex].data();
     emit imageSignal(depthCopy, colourCopy, irCopy);
 }
 } // namespace Ak
