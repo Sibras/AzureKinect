@@ -124,6 +124,8 @@ copy $(QtDllPath)\Qt5Widgets.dll $(OutDir)</Command>
     <ClCompile Include="source\AzureKinect.cpp" />
     <ClCompile Include="source\AzureKinectWindow.cpp" />
     <ClCompile Include="source/main.cpp" />
+    <ClCompile Include="source\DataTypes.cpp" />
+    <ClCompile Include="source\KinectRecord.cpp" />
     <ClCompile Include="source\KinectWidget.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -136,6 +138,8 @@ copy $(QtDllPath)\Qt5Widgets.dll $(OutDir)</Command>
     <QtRcc Include="source/AzureKinect.qrc" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\DataTypes.h" />
+    <ClInclude Include="include\KinectRecord.h" />
     <QtMoc Include="include/KinectWidget.h" />
     <ClInclude Include="include\AzureKinect.h" />
   </ItemGroup>

@@ -156,8 +156,18 @@
     <addaction name="actionBody_Shadow"/>
     <addaction name="actionBody_Skeleton"/>
    </widget>
+   <widget class="QMenu" name="menuRecord">
+    <property name="title">
+     <string>Record</string>
+    </property>
+    <addaction name="actionDepth_Image_2"/>
+    <addaction name="actionColour_Image_2"/>
+    <addaction name="actionIR_Image_2"/>
+    <addaction name="actionBody_Skeleton_2"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
+   <addaction name="menuRecord"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionExit">
@@ -215,6 +225,41 @@
    </property>
    <property name="text">
     <string>IR Image</string>
+   </property>
+  </action>
+  <action name="actionDepth_Image_2">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Depth Image</string>
+   </property>
+  </action>
+  <action name="actionColour_Image_2">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Colour Image</string>
+   </property>
+  </action>
+  <action name="actionIR_Image_2">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>IR Image</string>
+   </property>
+  </action>
+  <action name="actionBody_Skeleton_2">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Body Skeleton</string>
    </property>
   </action>
  </widget>

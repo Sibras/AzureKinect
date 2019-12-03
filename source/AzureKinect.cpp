@@ -17,91 +17,37 @@
 #include "AzureKinect.h"
 
 #include <array>
-#include <filesystem>
-#include <iomanip>
 #include <k4a/k4a.h>
-#include <sstream>
 #include <vector>
 using namespace std;
 
 namespace Ak {
-static array<pair<k4abt_joint_id_t, k4abt_joint_id_t>, 31> s_boneList = {
-    make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_SPINE_NAVAL), make_pair(K4ABT_JOINT_SPINE_NAVAL, K4ABT_JOINT_PELVIS),
-    make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_NECK), make_pair(K4ABT_JOINT_NECK, K4ABT_JOINT_HEAD),
-    make_pair(K4ABT_JOINT_HEAD, K4ABT_JOINT_NOSE), make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_CLAVICLE_LEFT),
-    make_pair(K4ABT_JOINT_CLAVICLE_LEFT, K4ABT_JOINT_SHOULDER_LEFT),
-    make_pair(K4ABT_JOINT_SHOULDER_LEFT, K4ABT_JOINT_ELBOW_LEFT),
-    make_pair(K4ABT_JOINT_ELBOW_LEFT, K4ABT_JOINT_WRIST_LEFT), make_pair(K4ABT_JOINT_WRIST_LEFT, K4ABT_JOINT_HAND_LEFT),
-    make_pair(K4ABT_JOINT_HAND_LEFT, K4ABT_JOINT_HANDTIP_LEFT),
-    make_pair(K4ABT_JOINT_WRIST_LEFT, K4ABT_JOINT_THUMB_LEFT), make_pair(K4ABT_JOINT_PELVIS, K4ABT_JOINT_HIP_LEFT),
-    make_pair(K4ABT_JOINT_HIP_LEFT, K4ABT_JOINT_KNEE_LEFT), make_pair(K4ABT_JOINT_KNEE_LEFT, K4ABT_JOINT_ANKLE_LEFT),
-    make_pair(K4ABT_JOINT_ANKLE_LEFT, K4ABT_JOINT_FOOT_LEFT), make_pair(K4ABT_JOINT_NOSE, K4ABT_JOINT_EYE_LEFT),
-    make_pair(K4ABT_JOINT_EYE_LEFT, K4ABT_JOINT_EAR_LEFT),
-    make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_CLAVICLE_RIGHT),
-    make_pair(K4ABT_JOINT_CLAVICLE_RIGHT, K4ABT_JOINT_SHOULDER_RIGHT),
-    make_pair(K4ABT_JOINT_SHOULDER_RIGHT, K4ABT_JOINT_ELBOW_RIGHT),
-    make_pair(K4ABT_JOINT_ELBOW_RIGHT, K4ABT_JOINT_WRIST_RIGHT),
-    make_pair(K4ABT_JOINT_WRIST_RIGHT, K4ABT_JOINT_HAND_RIGHT),
-    make_pair(K4ABT_JOINT_HAND_RIGHT, K4ABT_JOINT_HANDTIP_RIGHT),
-    make_pair(K4ABT_JOINT_WRIST_RIGHT, K4ABT_JOINT_THUMB_RIGHT), make_pair(K4ABT_JOINT_PELVIS, K4ABT_JOINT_HIP_RIGHT),
-    make_pair(K4ABT_JOINT_HIP_RIGHT, K4ABT_JOINT_KNEE_RIGHT),
-    make_pair(K4ABT_JOINT_KNEE_RIGHT, K4ABT_JOINT_ANKLE_RIGHT),
-    make_pair(K4ABT_JOINT_ANKLE_RIGHT, K4ABT_JOINT_FOOT_RIGHT), make_pair(K4ABT_JOINT_NOSE, K4ABT_JOINT_EYE_RIGHT),
-    make_pair(K4ABT_JOINT_EYE_RIGHT, K4ABT_JOINT_EAR_RIGHT)};
-
-string toString(const int number, const unsigned length) noexcept
-{
-    string num = to_string(number);
-    while (num.length() < length) {
-        num.insert(0, 1, '0');
-    }
-    return num;
-}
-
 AzureKinect::~AzureKinect()
 {
+    shutdown();
     cleanup();
 }
 
-void AzureKinect::start(const uint32_t pid) noexcept
-{
-    m_pid = pid;
-    m_run = true;
-}
-
-void AzureKinect::stop() noexcept
-{
-    m_run = false;
-}
-
-void AzureKinect::shutdown() noexcept
-{
-    stop();
-    m_shutdown = true;
-    // Wait for thread to complete
-    if (m_captureThread.joinable()) {
-        m_captureThread.join();
-    }
-}
-
-AzureKinect::KinectImage::KinectImage(
-    uint8_t* const image, const int32_t width, const int32_t height, const int32_t stride)
-    : m_image(image)
-    , m_width(width)
-    , m_height(height)
-    , m_stride(stride)
-{}
-
-bool AzureKinect::init(errorCallback error, readyCallback ready, imageCallback image) noexcept
+bool AzureKinect::init(errorCallback error, readyCallback ready, dataCallback data1, dataCallback data2) noexcept
 {
     // Store callbacks
     m_errorCallback = move(error);
-    m_imageCallback = move(image);
+    m_data1Callback = move(data1);
+    m_data2Callback = move(data2);
 
     // Start capture thread running
     m_captureThread = thread(&AzureKinect::run, this, move(ready));
 
     return true;
+}
+
+void AzureKinect::shutdown() noexcept
+{
+    m_shutdown = true;
+    // Wait for thread to complete
+    if (m_captureThread.joinable()) {
+        m_captureThread.join();
+    }
 }
 
 bool AzureKinect::initCamera() noexcept
@@ -152,64 +98,16 @@ bool AzureKinect::initCamera() noexcept
     return true;
 }
 
-bool AzureKinect::initOutput() noexcept
-{
-    // Create output directory
-    const string pidString = "PID"s + toString(m_pid, 3);
-    string baseDir = "./";
-    baseDir += pidString;
-    baseDir += '/';
-    int scanID = 1;
-    error_code ec;
-    while (true) {
-        string scanDir = baseDir + toString(scanID, 3);
-        if (!filesystem::exists(scanDir, ec)) {
-            baseDir = scanDir;
-            break;
-        }
-        ++scanID;
-    }
-
-    if (!filesystem::create_directories(baseDir, ec)) {
-        if (ec && m_errorCallback != nullptr) {
-            m_errorCallback("Failed creating output directory ("s + baseDir + ") with " + ec.message());
-        }
-        return false;
-    }
-
-    // Determine output filename
-    string timeString;
-    stringstream ss;
-    time_t inTimeT = chrono::system_clock::to_time_t(chrono::system_clock::now());
-    ss << put_time(localtime(&inTimeT), "%Y-%m-%d");
-    ss >> timeString;
-    string poseFile = baseDir;
-    ((poseFile += '/') += pidString) += timeString;
-
-    string videoFile = poseFile;
-    videoFile += ".mkv";
-    poseFile += ".csv";
-
-    // Create pose file
-
-    // Start recording
-    // TODO:
-
-    return true;
-}
-
-void AzureKinect::cleanupOutput() noexcept
-{
-    // Finalise output files
-    // TODO:
-}
-
 bool AzureKinect::run(const std::function<void()>& ready) noexcept
 {
     if (!initCamera()) {
         cleanup();
         return false;
     }
+
+    // Pre-allocate storage
+    vector<bool> bodyPixel(1024 * 1024);
+    vector<Joint> bodyJoint(K4ABT_JOINT_COUNT);
 
     // Trigger callback
     if (ready) {
@@ -263,16 +161,15 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                     if (m_errorCallback != nullptr) {
                         m_errorCallback("Failed to get skeleton from K4A capture");
                     }
-                    m_run = false;
                 }
                 body.id = k4abt_frame_get_body_id(bodyFrame, 0);
 
                 // Get the body pixel positions for the first detected body
                 const auto depthWidth = k4a_image_get_width_pixels(depthImage);
                 const auto depthHeight = k4a_image_get_height_pixels(depthImage);
-                vector<bool> bodyPixel(static_cast<size_t>(depthWidth) * depthHeight);
                 const k4a_image_t indexMap = k4abt_frame_get_body_index_map(bodyFrame);
                 const uint8_t* indexMapBuffer = k4a_image_get_buffer(indexMap);
+                bodyPixel.resize(static_cast<size_t>(depthWidth) * depthHeight);
                 for (int i = 0; i < depthWidth * depthHeight; i++) {
                     const uint8_t bodyIndex = indexMapBuffer[i];
                     if (bodyIndex == body.id) {
@@ -285,7 +182,7 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                 k4a_image_release(indexMap);
 
                 // Get the joint information
-                vector<Joint> bodyJoint(K4ABT_JOINT_COUNT);
+                bodyJoint.resize(0);
                 for (auto& joint : body.skeleton.joints) {
                     if (joint.confidence_level >= K4ABT_JOINT_CONFIDENCE_LOW) {
                         const k4a_float3_t& jointPosition = joint.position;
@@ -295,59 +192,35 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                             Quaternion{jointOrientation.wxyz.x, jointOrientation.wxyz.y, jointOrientation.wxyz.z,
                                 jointOrientation.wxyz.w},
                             joint.confidence_level >= K4ABT_JOINT_CONFIDENCE_MEDIUM);
-                    }
-                }
-
-                // Visualize bones
-                vector<Bone> bodyBones(s_boneList.size());
-                for (auto& bone : s_boneList) {
-                    const k4abt_joint_id_t joint1 = bone.first;
-                    const k4abt_joint_id_t joint2 = bone.second;
-
-                    if (body.skeleton.joints[joint1].confidence_level >= K4ABT_JOINT_CONFIDENCE_LOW &&
-                        body.skeleton.joints[joint2].confidence_level >= K4ABT_JOINT_CONFIDENCE_LOW) {
-                        const k4a_float3_t& joint1Position = body.skeleton.joints[joint1].position;
-                        const k4a_float3_t& joint2Position = body.skeleton.joints[joint2].position;
-
-                        bodyBones.emplace_back(
-                            Position{joint1Position.xyz.x, joint1Position.xyz.y, joint1Position.xyz.z},
-                            Position{joint2Position.xyz.x, joint2Position.xyz.y, joint2Position.xyz.z},
-                            body.skeleton.joints[joint1].confidence_level >= K4ABT_JOINT_CONFIDENCE_MEDIUM &&
-                                body.skeleton.joints[joint2].confidence_level >= K4ABT_JOINT_CONFIDENCE_MEDIUM);
-                    }
-                }
-            }
-
-            if (m_run) {
-                if (!m_run2) {
-                    if (initOutput()) {
-                        m_run2 = true;
                     } else {
-                        m_run = false;
+                        const Position unknown(-10000.0f, -10000.0f, -10000.0f);
+                        const Quaternion unknown2(0.0f, 0.0f, 0.0f, 0.0f);
+                        bodyJoint.emplace_back(unknown, unknown2, false);
                     }
                 }
-                if (m_run) {
-                    // TODO: Write out to file
-
-                    // Encode images
-                    // TODO:
-                }
-            } else if (m_run2) {
-                cleanupOutput();
-                m_run2 = false;
             }
 
             // TODO: Send data to renderer
-            if (m_imageCallback) {
-                const k4a_image_t colourImage = k4a_capture_get_color_image(originalCapture);
-                const k4a_image_t irImage = k4a_capture_get_ir_image(originalCapture);
+            if (m_data1Callback || m_data2Callback) {
+                const auto time = k4a_image_get_device_timestamp_usec(depthImage);
+                const auto colourImage = k4a_capture_get_color_image(originalCapture);
+                const auto irImage = k4a_capture_get_ir_image(originalCapture);
                 KinectImage depthPass = {k4a_image_get_buffer(depthImage), k4a_image_get_width_pixels(depthImage),
                     k4a_image_get_height_pixels(depthImage), k4a_image_get_stride_bytes(depthImage)};
                 KinectImage colourPass = {k4a_image_get_buffer(colourImage), k4a_image_get_width_pixels(colourImage),
                     k4a_image_get_height_pixels(colourImage), k4a_image_get_stride_bytes(colourImage)};
                 KinectImage irPass = {k4a_image_get_buffer(irImage), k4a_image_get_width_pixels(irImage),
                     k4a_image_get_height_pixels(irImage), k4a_image_get_stride_bytes(irImage)};
-                m_imageCallback(depthPass, colourPass, irPass);
+
+                KinectJoints joints(bodyJoint.data(), static_cast<uint32_t>(bodyJoint.size()));
+                if (m_data1Callback) {
+                    m_data1Callback(time, depthPass, colourPass, irPass, joints);
+                }
+
+                if (m_data2Callback) {
+                    m_data2Callback(time, depthPass, colourPass, irPass, joints);
+                }
+
                 k4a_image_release(colourImage);
                 k4a_image_release(irImage);
             }

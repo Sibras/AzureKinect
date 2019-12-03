@@ -26,6 +26,30 @@ using namespace glm;
 using namespace std;
 
 namespace Ak {
+static array<pair<k4abt_joint_id_t, k4abt_joint_id_t>, 31> s_boneList = {
+    make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_SPINE_NAVAL), make_pair(K4ABT_JOINT_SPINE_NAVAL, K4ABT_JOINT_PELVIS),
+    make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_NECK), make_pair(K4ABT_JOINT_NECK, K4ABT_JOINT_HEAD),
+    make_pair(K4ABT_JOINT_HEAD, K4ABT_JOINT_NOSE), make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_CLAVICLE_LEFT),
+    make_pair(K4ABT_JOINT_CLAVICLE_LEFT, K4ABT_JOINT_SHOULDER_LEFT),
+    make_pair(K4ABT_JOINT_SHOULDER_LEFT, K4ABT_JOINT_ELBOW_LEFT),
+    make_pair(K4ABT_JOINT_ELBOW_LEFT, K4ABT_JOINT_WRIST_LEFT), make_pair(K4ABT_JOINT_WRIST_LEFT, K4ABT_JOINT_HAND_LEFT),
+    make_pair(K4ABT_JOINT_HAND_LEFT, K4ABT_JOINT_HANDTIP_LEFT),
+    make_pair(K4ABT_JOINT_WRIST_LEFT, K4ABT_JOINT_THUMB_LEFT), make_pair(K4ABT_JOINT_PELVIS, K4ABT_JOINT_HIP_LEFT),
+    make_pair(K4ABT_JOINT_HIP_LEFT, K4ABT_JOINT_KNEE_LEFT), make_pair(K4ABT_JOINT_KNEE_LEFT, K4ABT_JOINT_ANKLE_LEFT),
+    make_pair(K4ABT_JOINT_ANKLE_LEFT, K4ABT_JOINT_FOOT_LEFT), make_pair(K4ABT_JOINT_NOSE, K4ABT_JOINT_EYE_LEFT),
+    make_pair(K4ABT_JOINT_EYE_LEFT, K4ABT_JOINT_EAR_LEFT),
+    make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_CLAVICLE_RIGHT),
+    make_pair(K4ABT_JOINT_CLAVICLE_RIGHT, K4ABT_JOINT_SHOULDER_RIGHT),
+    make_pair(K4ABT_JOINT_SHOULDER_RIGHT, K4ABT_JOINT_ELBOW_RIGHT),
+    make_pair(K4ABT_JOINT_ELBOW_RIGHT, K4ABT_JOINT_WRIST_RIGHT),
+    make_pair(K4ABT_JOINT_WRIST_RIGHT, K4ABT_JOINT_HAND_RIGHT),
+    make_pair(K4ABT_JOINT_HAND_RIGHT, K4ABT_JOINT_HANDTIP_RIGHT),
+    make_pair(K4ABT_JOINT_WRIST_RIGHT, K4ABT_JOINT_THUMB_RIGHT), make_pair(K4ABT_JOINT_PELVIS, K4ABT_JOINT_HIP_RIGHT),
+    make_pair(K4ABT_JOINT_HIP_RIGHT, K4ABT_JOINT_KNEE_RIGHT),
+    make_pair(K4ABT_JOINT_KNEE_RIGHT, K4ABT_JOINT_ANKLE_RIGHT),
+    make_pair(K4ABT_JOINT_ANKLE_RIGHT, K4ABT_JOINT_FOOT_RIGHT), make_pair(K4ABT_JOINT_NOSE, K4ABT_JOINT_EYE_RIGHT),
+    make_pair(K4ABT_JOINT_EYE_RIGHT, K4ABT_JOINT_EAR_RIGHT)};
+
 KinectWidget::KinectWidget(QWidget* parent) noexcept
     : QOpenGLWidget(parent)
 {}
@@ -45,8 +69,8 @@ void KinectWidget::setRenderOptions(const bool depthImage, const bool colourImag
     m_bodySkeletonImage = bodySkeleton;
 }
 
-void KinectWidget::imageSlot(const AzureKinect::KinectImage depthImage, const AzureKinect::KinectImage colourImage,
-    AzureKinect::KinectImage irImage) noexcept
+void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colourImage, const KinectImage irImage,
+    const KinectJoints joints) noexcept
 {
     // Only inbuilt types can be used as parameters for signal/slot connections. Hence why unsigned must be used instead
     // of uint32_t as otherwise connections are not triggered properly
@@ -112,39 +136,6 @@ void KinectWidget::initializeGL() noexcept
     glEnable(GL_CULL_FACE);               // Enable use of back/front face culling
     glEnable(GL_DEPTH_TEST);              // Enable use of depth testing
     glDisable(GL_STENCIL_TEST);           // Disable stencil test for speed
-
-    // Load shaders
-    GLuint vertexShader;
-    if (!loadShader(vertexShader, GL_VERTEX_SHADER, (GLchar*)QResource(":/AzureKinect/FullScreenQuad.vert").data())) {
-        return;
-    }
-    GLuint fragmentShader;
-    if (!loadShader(fragmentShader, GL_FRAGMENT_SHADER, (GLchar*)QResource(":/AzureKinect/DepthImage.frag").data())) {
-        return;
-    }
-    if (!loadShaders(m_depthProgram, vertexShader, fragmentShader)) {
-        return;
-    }
-    glDeleteShader(fragmentShader);
-
-    if (!loadShader(fragmentShader, GL_FRAGMENT_SHADER, (GLchar*)QResource(":/AzureKinect/ColourImage.frag").data())) {
-        return;
-    }
-    if (!loadShaders(m_colourProgram, vertexShader, fragmentShader)) {
-        return;
-    }
-    glDeleteShader(fragmentShader);
-
-    if (!loadShader(fragmentShader, GL_FRAGMENT_SHADER, (GLchar*)QResource(":/AzureKinect/IRImage.frag").data())) {
-        return;
-    }
-    if (!loadShaders(m_irProgram, vertexShader, fragmentShader)) {
-        return;
-    }
-
-    // Clean up unneeded shaders
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
 
     // Generate the full screen quad
     glGenVertexArrays(1, &m_quadVAO);
@@ -220,6 +211,39 @@ void KinectWidget::initializeGL() noexcept
     // Create the viewProjection buffers
     glGenBuffers(1, &m_cameraUBO);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, m_cameraUBO);
+
+    // Load shaders
+    GLuint vertexShader;
+    if (!loadShader(vertexShader, GL_VERTEX_SHADER, (GLchar*)QResource(":/AzureKinect/FullScreenQuad.vert").data())) {
+        return;
+    }
+    GLuint fragmentShader;
+    if (!loadShader(fragmentShader, GL_FRAGMENT_SHADER, (GLchar*)QResource(":/AzureKinect/DepthImage.frag").data())) {
+        return;
+    }
+    if (!loadShaders(m_depthProgram, vertexShader, fragmentShader)) {
+        return;
+    }
+    glDeleteShader(fragmentShader);
+
+    if (!loadShader(fragmentShader, GL_FRAGMENT_SHADER, (GLchar*)QResource(":/AzureKinect/ColourImage.frag").data())) {
+        return;
+    }
+    if (!loadShaders(m_colourProgram, vertexShader, fragmentShader)) {
+        return;
+    }
+    glDeleteShader(fragmentShader);
+
+    if (!loadShader(fragmentShader, GL_FRAGMENT_SHADER, (GLchar*)QResource(":/AzureKinect/IRImage.frag").data())) {
+        return;
+    }
+    if (!loadShaders(m_irProgram, vertexShader, fragmentShader)) {
+        return;
+    }
+
+    // Clean up unneeded shaders
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
 }
 
 void KinectWidget::resizeGL(const int width, const int height) noexcept
@@ -305,6 +329,25 @@ void KinectWidget::paintGL() noexcept
 
     if (m_bodySkeletonImage) {
         // Render body skeleton
+        //
+        //                // Visualize bones
+        //        vector<Bone> bodyBones(s_boneList.size());
+        //        for (auto& bone : s_boneList) {
+        //            const k4abt_joint_id_t joint1 = bone.first;
+        //            const k4abt_joint_id_t joint2 = bone.second;
+        //
+        //            if (body.skeleton.joints[joint1].confidence_level >= K4ABT_JOINT_CONFIDENCE_LOW &&
+        //                body.skeleton.joints[joint2].confidence_level >= K4ABT_JOINT_CONFIDENCE_LOW) {
+        //                const k4a_float3_t& joint1Position = body.skeleton.joints[joint1].position;
+        //                const k4a_float3_t& joint2Position = body.skeleton.joints[joint2].position;
+        //
+        //                bodyBones.emplace_back(Position{joint1Position.xyz.x, joint1Position.xyz.y,
+        //                joint1Position.xyz.z},
+        //                    Position{joint2Position.xyz.x, joint2Position.xyz.y, joint2Position.xyz.z},
+        //                    body.skeleton.joints[joint1].confidence_level >= K4ABT_JOINT_CONFIDENCE_MEDIUM &&
+        //                        body.skeleton.joints[joint2].confidence_level >= K4ABT_JOINT_CONFIDENCE_MEDIUM);
+        //            }
+        //        }
         // TODO:****
     }
 }
@@ -347,7 +390,7 @@ bool KinectWidget::loadShader(GLuint& shader, const GLenum shaderType, const GLc
         GLchar infolog[1024];
         int32_t errorLength;
         glGetShaderInfoLog(shader, 1024, &errorLength, infolog);
-        emit errorSignal(tr("Failed to compile shader: ") + infolog);
+        emit errorSignal(tr("Failed to compile shader: ") + infolog + shaderCode);
         glDeleteShader(shader);
         return false;
     }

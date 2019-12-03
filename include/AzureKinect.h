@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include "DataTypes.h"
+
 #include <atomic>
 #include <functional>
 #include <k4abt.h>
@@ -37,176 +39,37 @@ public:
 
     AzureKinect& operator=(AzureKinect&& other) noexcept = delete;
 
-    class KinectImage
-    {
-    public:
-        KinectImage() = default;
-
-        KinectImage(const KinectImage& other) = default;
-
-        KinectImage(KinectImage&& other) noexcept = default;
-
-        KinectImage& operator=(const KinectImage& other) = default;
-
-        KinectImage& operator=(KinectImage&& other) noexcept = default;
-
-        ~KinectImage() = default;
-
-        KinectImage(uint8_t* image, int32_t width, int32_t height, int32_t stride);
-
-        uint8_t* m_image;
-        int32_t m_width;
-        int32_t m_height;
-        int32_t m_stride;
-    };
-
     using errorCallback = std::function<void(const std::string&)>;
     using readyCallback = std::function<void()>;
-    using imageCallback = std::function<void(const KinectImage&, const KinectImage&, const KinectImage&)>;
+    using dataCallback =
+        std::function<void(uint64_t, const KinectImage&, const KinectImage&, const KinectImage&, const KinectJoints&)>;
 
     /**
      * Initializes the azure kinect camera.
      * @param error (Optional) The callback used to signal errors.
      * @param ready (Optional) The callback used to signal camera is ready for operations.
-     * @param image (Optional) The callback used to signal updated image data.
+     * @param data1 (Optional) The callback used to signal updated image/position data.
+     * @param data2 (Optional) The callback used to signal updated image/position data.
      * @returns True if it succeeds, false if it fails.
      */
-    bool init(errorCallback error = nullptr, readyCallback ready = nullptr, imageCallback image = nullptr) noexcept;
-
-    /**
-     * Notify to start acquisition.
-     * @note This function is asynchronous and may not result in an immediate shutdown.
-     * @param pid The player ID used to identify output data.
-     */
-    void start(uint32_t pid) noexcept;
-
-    /** Notify to end acquisition.
-     * @note This function is asynchronous and may not result in an immediate shutdown.
-     */
-    void stop() noexcept;
+    bool init(errorCallback error = nullptr, readyCallback ready = nullptr, dataCallback data1 = nullptr,
+        dataCallback data2 = nullptr) noexcept;
 
     /** Notify to shutdown.
      * @note This function is synchronous and will block until thread has completed.
      */
     void shutdown() noexcept;
 
-    struct Position
-    {
-        float m_x, m_y, m_z;
-
-        Position() = default;
-
-        Position(const float x, const float y, const float z)
-            : m_x(x)
-            , m_y(y)
-            , m_z(z)
-        {}
-
-        Position(const Position& other) = default;
-
-        Position(Position&& other) noexcept = default;
-
-        Position& operator=(const Position& other) = default;
-
-        Position& operator=(Position&& other) noexcept = default;
-    };
-
-    struct Quaternion
-    {
-        float m_x, m_y, m_z, m_w;
-
-        Quaternion() = default;
-
-        Quaternion(const float x, const float y, const float z, const float w)
-            : m_x(x)
-            , m_y(y)
-            , m_z(z)
-            , m_w(w)
-        {}
-
-        Quaternion(const Quaternion& other) = default;
-
-        Quaternion(Quaternion&& other) noexcept = default;
-
-        Quaternion& operator=(const Quaternion& other) = default;
-
-        Quaternion& operator=(Quaternion&& other) noexcept = default;
-    };
-
-    struct Joint
-    {
-        Position m_position;
-        Quaternion m_rotation;
-        bool m_confident;
-
-        Joint() = default;
-
-        Joint(const Position& position, const Quaternion& rotation, const bool confident)
-            : m_position(position)
-            , m_rotation(rotation)
-            , m_confident(confident)
-        {}
-
-        Joint(const Position&& position, const Quaternion&& rotation, const bool&& confident)
-            : m_position(position)
-            , m_rotation(rotation)
-            , m_confident(confident)
-        {}
-
-        Joint(const Joint& other) = default;
-
-        Joint(Joint&& other) noexcept = default;
-
-        Joint& operator=(const Joint& other) = default;
-
-        Joint& operator=(Joint&& other) noexcept = default;
-    };
-
-    struct Bone
-    {
-        Position m_joint1;
-        Position m_joint2;
-        bool m_confident;
-
-        Bone() = default;
-
-        Bone(const Position& joint1, const Position& joint2, const bool confident)
-            : m_joint1(joint1)
-            , m_joint2(joint2)
-            , m_confident(confident)
-        {}
-
-        Bone(const Position&& joint1, const Position&& joint2, const bool&& confident)
-            : m_joint1(joint1)
-            , m_joint2(joint2)
-            , m_confident(confident)
-        {}
-
-        Bone(const Bone& other) = default;
-
-        Bone(Bone&& other) noexcept = default;
-
-        Bone& operator=(const Bone& other) = default;
-
-        Bone& operator=(Bone&& other) noexcept = default;
-    };
-
 private:
     std::atomic_bool m_shutdown = false;
-    std::atomic_bool m_run = false;
-    std::atomic_bool m_run2 = false;
-    std::atomic_uint32_t m_pid = 0;
     k4a_device_t m_device = nullptr;
     k4abt_tracker_t m_tracker = nullptr;
     std::thread m_captureThread;
     errorCallback m_errorCallback = nullptr;
-    imageCallback m_imageCallback = nullptr;
+    dataCallback m_data1Callback = nullptr;
+    dataCallback m_data2Callback = nullptr;
 
     [[nodiscard]] bool initCamera() noexcept;
-
-    [[nodiscard]] bool initOutput() noexcept;
-
-    void cleanupOutput() noexcept;
 
     /**
      * Run image acquisition and processing.
@@ -214,7 +77,7 @@ private:
      * @param ready (Optional) The callback used to signal camera is ready for operations.
      * @returns True if it succeeds, false if it fails.
      */
-    [[nodiscard]] bool run(const std::function<void()>& ready = nullptr) noexcept;
+    [[nodiscard]] bool run(const readyCallback& ready = nullptr) noexcept;
 
     /** Cleanup any resources created during init(). */
     void cleanup() noexcept;

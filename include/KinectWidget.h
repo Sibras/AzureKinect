@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "AzureKinect.h"
+#include "DataTypes.h"
 
 #include <QOpenGLExtraFunctions>
 #include <QOpenGLWidget>
@@ -44,13 +44,13 @@ public:
 public slots:
 
     /**
-     * Slot used to receive thread safe, asynchronous image information.
+     * Slot used to receive thread safe, asynchronous image/position information.
      * @param depthImage  The depth image data.
      * @param colourImage The colour image data.
      * @param irImage     The IR image data.
+     * @param joints      The joint data.
      */
-    void imageSlot(AzureKinect::KinectImage depthImage, AzureKinect::KinectImage colourImage,
-        AzureKinect::KinectImage irImage) noexcept;
+    void dataSlot(KinectImage depthImage, KinectImage colourImage, KinectImage irImage, KinectJoints joints) noexcept;
 
 signals:
     /**

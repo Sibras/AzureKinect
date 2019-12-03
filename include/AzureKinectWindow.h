@@ -16,6 +16,7 @@
  */
 
 #include "AzureKinect.h"
+#include "KinectRecord.h"
 #include "ui_AzureKinect.h"
 
 #include <QIntValidator>
@@ -45,35 +46,60 @@ public slots:
     void errorSlot(const QString& message) noexcept;
 
     /** Slot used to notify program that camera is ready to start capture */
-    void readySlot() const noexcept;
+    void readySlot() noexcept;
 
     /** Slot used to select display of depth image */
-    void depthImageSlot() noexcept;
+    void viewDepthImageSlot() noexcept;
 
     /** Slot used to select display of colour image */
-    void colourImageSlot() noexcept;
+    void viewColourImageSlot() noexcept;
 
     /** Slot used to select display of IR image */
-    void irImageSlot() noexcept;
+    void viewIRImageSlot() noexcept;
 
     /** Slot used to select display of body shadow */
-    void bodyShadowSlot() noexcept;
+    void viewBodyShadowSlot() noexcept;
 
     /** Slot used to select display of body skeleton */
-    void bodySkeletonSlot() noexcept;
+    void viewBodySkeletonSlot() noexcept;
+
+    /** Slot used to select recording of depth image */
+    void recordDepthImageSlot() noexcept;
+
+    /** Slot used to select recording of colour image */
+    void recordColourImageSlot() noexcept;
+
+    /** Slot used to select recording of IR image */
+    void recordIRImageSlot() noexcept;
+
+    /** Slot used to select recording of body skeleton */
+    void recordBodySkeletonSlot() noexcept;
 
 private:
     Ui::AzureKinectClass m_ui;
     QValidator* m_validatorPID = nullptr;
-    std::array<std::vector<uint8_t>, 15> m_imageBuffer;
+
+    struct DataBuffers
+    {
+        std::vector<uint8_t> m_image;
+        std::vector<Joint> m_joints;
+    };
+
+    std::array<DataBuffers, 15> m_dataBuffer;
     uint32_t m_bufferIndex = 0;
-    bool m_depthImage = true;
-    bool m_colourImage = false;
-    bool m_irImage = false;
-    bool m_bodyShadowImage = true;
-    bool m_bodySkeletonImage = true;
+    bool m_viewDepthImage = true;
+    bool m_viewColourImage = false;
+    bool m_viewIRImage = false;
+    bool m_viewBodyShadow = true;
+    bool m_viewBodySkeleton = true;
+    bool m_recordDepthImage = false;
+    bool m_recordColourImage = false;
+    bool m_recordIRImage = false;
+    bool m_recordBodySkeleton = true;
     bool m_started = false;
+    bool m_ready = false;
     AzureKinect m_kinect;
+    KinectRecord m_recorder;
 
     /**
      * Override used to capture and handle close events.
@@ -95,13 +121,21 @@ private:
     void readyCallback() const noexcept;
 
     /**
-     * Callback used by the camera thread when new image information is available.
+     * Callback used by the camera thread when new image/position information is available.
+     * @param time        The timestamp of the capture.
      * @param depthImage  The depth image data.
      * @param colourImage The colour image data.
      * @param irImage     The IR image data.
+     * @param joints      The joint data.
      */
-    void imageCallback(const AzureKinect::KinectImage& depthImage, const AzureKinect::KinectImage& colourImage,
-        const AzureKinect::KinectImage& irImage) noexcept;
+    void dataCallback(uint64_t time, const KinectImage& depthImage, const KinectImage& colourImage,
+        const KinectImage& irImage, const KinectJoints& joints) noexcept;
+
+    /** Updates the render options for the render widget */
+    void updateRenderOptions() const noexcept;
+
+    /** Updates the record options for the record object */
+    void updateRecordOptions() noexcept;
 
 signals:
     /**
@@ -118,13 +152,13 @@ signals:
     void readySignal() const;
 
     /**
-     * Signal used to pass asynchronous thread safe image data.
-     * @note This is required by @imageCallback.
+     * Signal used to pass asynchronous thread safe image/position data.
+     * @note This is required by @dataCallback.
      * @param depthImage  The depth image data.
      * @param colourImage The colour image data.
      * @param irImage     The IR image data.
+     * @param joints      The joint data.
      */
-    void imageSignal(AzureKinect::KinectImage depthImage, AzureKinect::KinectImage colourImage,
-        AzureKinect::KinectImage irImage) const;
+    void dataSignal(KinectImage depthImage, KinectImage colourImage, KinectImage irImage, KinectJoints joints) const;
 };
 } // namespace Ak
