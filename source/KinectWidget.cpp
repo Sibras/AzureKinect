@@ -70,7 +70,7 @@ void KinectWidget::setRenderOptions(const bool depthImage, const bool colourImag
 }
 
 void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colourImage, const KinectImage irImage,
-    const KinectJoints joints) noexcept
+    const KinectImage shadowImage, const KinectJoints joints) noexcept
 {
     // Only inbuilt types can be used as parameters for signal/slot connections. Hence why unsigned must be used instead
     // of uint32_t as otherwise connections are not triggered properly
@@ -114,7 +114,11 @@ void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colo
     }
 
     if (m_bodyShadowImage) {
-        // TODO:****
+        // Copy shadow image data
+        glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, shadowImage.m_width, shadowImage.m_height, GL_RED, GL_UNSIGNED_BYTE,
+            reinterpret_cast<const GLvoid*>(shadowImage.m_image));
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     if (m_bodySkeletonImage) {
@@ -201,6 +205,18 @@ void KinectWidget::initializeGL() noexcept
         reinterpret_cast<const GLvoid*>(initialBlank.data()));
     glBindTexture(GL_TEXTURE_2D, 0);
 
+    // Create shadow texture
+    glGenTextures(1, &m_shadowTexture);
+    glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, 640, 576);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 640, 576, GL_R8, GL_UNSIGNED_BYTE,
+        reinterpret_cast<const GLvoid*>(initialBlank.data()));
+    glBindTexture(GL_TEXTURE_2D, 0);
+
     // Setup inverse resolution
     glGenBuffers(1, &m_inverseResUBO);
     vec2 inverseRes = 1.0f / vec2(1280.0f, 720.0f);
@@ -238,6 +254,14 @@ void KinectWidget::initializeGL() noexcept
         return;
     }
     if (!loadShaders(m_irProgram, vertexShader, fragmentShader)) {
+        return;
+    }
+    glDeleteShader(fragmentShader);
+
+    if (!loadShader(fragmentShader, GL_FRAGMENT_SHADER, (GLchar*)QResource(":/AzureKinect/ShadowImage.frag").data())) {
+        return;
+    }
+    if (!loadShaders(m_shadowProgram, vertexShader, fragmentShader)) {
         return;
     }
 
@@ -324,7 +348,20 @@ void KinectWidget::paintGL() noexcept
 
     if (m_bodyShadowImage) {
         // Render body shadow
-        // TODO:****
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        // Enable blending
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glUseProgram(m_shadowProgram);
+        glBindVertexArray(m_quadVAO);
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
+
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
     }
 
     if (m_bodySkeletonImage) {
@@ -361,6 +398,7 @@ void KinectWidget::cleanup() noexcept
     glDeleteProgram(m_depthProgram);
     glDeleteProgram(m_colourProgram);
     glDeleteProgram(m_irProgram);
+    glDeleteProgram(m_shadowProgram);
 
     glDeleteBuffers(1, &m_quadVBO);
     glDeleteBuffers(1, &m_quadIBO);
@@ -369,6 +407,7 @@ void KinectWidget::cleanup() noexcept
     glDeleteTextures(1, &m_depthTexture);
     glDeleteTextures(1, &m_colourTexture);
     glDeleteTextures(1, &m_irTexture);
+    glDeleteTextures(1, &m_shadowTexture);
 
     glDeleteBuffers(1, &m_inverseResUBO);
     glDeleteBuffers(1, &m_cameraUBO);

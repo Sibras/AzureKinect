@@ -41,8 +41,8 @@ public:
 
     using errorCallback = std::function<void(const std::string&)>;
     using readyCallback = std::function<void()>;
-    using dataCallback =
-        std::function<void(uint64_t, const KinectImage&, const KinectImage&, const KinectImage&, const KinectJoints&)>;
+    using dataCallback = std::function<void(
+        uint64_t, const KinectImage&, const KinectImage&, const KinectImage&, const KinectImage&, const KinectJoints&)>;
 
     /**
      * Initializes the azure kinect camera.

@@ -150,6 +150,7 @@ copy $(QtDllPath)\Qt5Widgets.dll $(OutDir)</Command>
     <None Include="source\DepthImage.frag" />
     <None Include="source\FullScreenQuad.vert" />
     <None Include="source\IRImage.frag" />
+    <None Include="source\ShadowImage.frag" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

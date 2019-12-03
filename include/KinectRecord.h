@@ -73,10 +73,11 @@ public:
      * @param depthImage  The depth image data.
      * @param colourImage The colour image data.
      * @param irImage     The IR image data.
+     * @param shadowImage The body shadow image data.
      * @param joints      The joint data.
      */
     void dataCallback(uint64_t time, const KinectImage& depthImage, const KinectImage& colourImage,
-        const KinectImage& irImage, const KinectJoints& joints) noexcept;
+        const KinectImage& irImage, const KinectImage& shadowImage, const KinectJoints& joints) noexcept;
 
     /**
      * Sets what types of data should be recorded.
@@ -102,7 +103,7 @@ private:
 
     std::array<DataBuffers, 16 /*must be power of 2*/> m_dataBuffer;
     std::atomic_uint32_t m_bufferIndex = 0;
-    std::atomic_uint32_t m_remainingBuffers = 0;
+    std::atomic_int32_t m_remainingBuffers = 0;
     uint32_t m_nextBufferIndex = 0;
     bool m_depthImage = true;
     bool m_colourImage = false;

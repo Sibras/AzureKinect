@@ -82,6 +82,7 @@ private:
     struct DataBuffers
     {
         std::vector<uint8_t> m_image;
+        std::vector<uint8_t> m_shadow;
         std::vector<Joint> m_joints;
     };
 
@@ -126,10 +127,11 @@ private:
      * @param depthImage  The depth image data.
      * @param colourImage The colour image data.
      * @param irImage     The IR image data.
+     * @param shadowImage The body shadow image data.
      * @param joints      The joint data.
      */
     void dataCallback(uint64_t time, const KinectImage& depthImage, const KinectImage& colourImage,
-        const KinectImage& irImage, const KinectJoints& joints) noexcept;
+        const KinectImage& irImage, const KinectImage& shadowImage, const KinectJoints& joints) noexcept;
 
     /** Updates the render options for the render widget */
     void updateRenderOptions() const noexcept;
@@ -157,8 +159,10 @@ signals:
      * @param depthImage  The depth image data.
      * @param colourImage The colour image data.
      * @param irImage     The IR image data.
+     * @param shadowImage The body shadow image data.
      * @param joints      The joint data.
      */
-    void dataSignal(KinectImage depthImage, KinectImage colourImage, KinectImage irImage, KinectJoints joints) const;
+    void dataSignal(KinectImage depthImage, KinectImage colourImage, KinectImage irImage, KinectImage shadowImage,
+        KinectJoints joints) const;
 };
 } // namespace Ak

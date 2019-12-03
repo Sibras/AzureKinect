@@ -106,8 +106,10 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
     }
 
     // Pre-allocate storage
-    vector<bool> bodyPixel(1024 * 1024);
+    vector<uint8_t> bodyPixel(1024 * 1024);
     vector<Joint> bodyJoint(K4ABT_JOINT_COUNT);
+    const Position unknown(-10000.0f, -10000.0f, -10000.0f);
+    const Quaternion unknown2(0.0f, 0.0f, 0.0f, 0.0f);
 
     // Trigger callback
     if (ready) {
@@ -172,11 +174,11 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                 bodyPixel.resize(static_cast<size_t>(depthWidth) * depthHeight);
                 for (int i = 0; i < depthWidth * depthHeight; i++) {
                     const uint8_t bodyIndex = indexMapBuffer[i];
-                    if (bodyIndex == body.id) {
-                        bodyPixel[i] = true;
+                    if (bodyIndex != K4ABT_BODY_INDEX_MAP_BACKGROUND) {
+                        bodyPixel[i] = std::numeric_limits<uint8_t>::max();
                     } else {
                         // K4ABT_BODY_INDEX_MAP_BACKGROUND if not a body
-                        bodyPixel[i] = false;
+                        bodyPixel[i] = 0;
                     }
                 }
                 k4a_image_release(indexMap);
@@ -193,11 +195,15 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                                 jointOrientation.wxyz.w},
                             joint.confidence_level >= K4ABT_JOINT_CONFIDENCE_MEDIUM);
                     } else {
-                        const Position unknown(-10000.0f, -10000.0f, -10000.0f);
-                        const Quaternion unknown2(0.0f, 0.0f, 0.0f, 0.0f);
                         bodyJoint.emplace_back(unknown, unknown2, false);
                     }
                 }
+            } else {
+                // Reset the buffers to contains invalid data
+                bodyPixel.assign(static_cast<size_t>(k4a_image_get_width_pixels(depthImage)) *
+                        k4a_image_get_height_pixels(depthImage),
+                    0);
+                bodyJoint.assign(K4ABT_JOINT_COUNT, {unknown, unknown2, false});
             }
 
             // TODO: Send data to renderer
@@ -212,13 +218,14 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                 KinectImage irPass = {k4a_image_get_buffer(irImage), k4a_image_get_width_pixels(irImage),
                     k4a_image_get_height_pixels(irImage), k4a_image_get_stride_bytes(irImage)};
 
+                KinectImage shadow = {bodyPixel.data(), depthPass.m_width, depthPass.m_height, depthPass.m_width};
                 KinectJoints joints(bodyJoint.data(), static_cast<uint32_t>(bodyJoint.size()));
                 if (m_data1Callback) {
-                    m_data1Callback(time, depthPass, colourPass, irPass, joints);
+                    m_data1Callback(time, depthPass, colourPass, irPass, shadow, joints);
                 }
 
                 if (m_data2Callback) {
-                    m_data2Callback(time, depthPass, colourPass, irPass, joints);
+                    m_data2Callback(time, depthPass, colourPass, irPass, shadow, joints);
                 }
 
                 k4a_image_release(colourImage);

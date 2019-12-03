@@ -4,5 +4,6 @@
         <file>FullScreenQuad.vert</file>
         <file>ColourImage.frag</file>
         <file>IRImage.frag</file>
+        <file>ShadowImage.frag</file>
     </qresource>
 </RCC>

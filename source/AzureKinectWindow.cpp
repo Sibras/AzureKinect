@@ -68,9 +68,9 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
         m_kinect.init(bind(&AzureKinectWindow::errorCallback, this, placeholders::_1),
             bind(&AzureKinectWindow::readyCallback, this),
             bind(&AzureKinectWindow::dataCallback, this, placeholders::_1, placeholders::_2, placeholders::_3,
-                placeholders::_4, placeholders::_5),
+                placeholders::_4, placeholders::_5, placeholders::_6),
             bind(&KinectRecord::dataCallback, &m_recorder, placeholders::_1, placeholders::_2, placeholders::_3,
-                placeholders::_4, placeholders::_5));
+                placeholders::_4, placeholders::_5, placeholders::_6));
     });
 }
 
@@ -207,7 +207,7 @@ void AzureKinectWindow::readyCallback() const noexcept
 }
 
 void AzureKinectWindow::dataCallback(uint64_t, const KinectImage& depthImage, const KinectImage& colourImage,
-    const KinectImage& irImage, const KinectJoints& joints) noexcept
+    const KinectImage& irImage, const KinectImage& shadowImage, const KinectJoints& joints) noexcept
 {
     // Need to copy data into local storage
     ++m_bufferIndex;
@@ -236,7 +236,9 @@ void AzureKinectWindow::dataCallback(uint64_t, const KinectImage& depthImage, co
     }
 
     if (m_viewBodyShadow) {
-        // TODO:*********
+        m_dataBuffer[m_bufferIndex].m_shadow.resize(0);
+        m_dataBuffer[m_bufferIndex].m_shadow.insert(m_dataBuffer[m_bufferIndex].m_shadow.begin(), shadowImage.m_image,
+            shadowImage.m_image + (static_cast<size_t>(shadowImage.m_height) * shadowImage.m_stride));
     }
     if (m_viewBodySkeleton) {
         m_dataBuffer[m_bufferIndex].m_joints.resize(0);
@@ -249,9 +251,11 @@ void AzureKinectWindow::dataCallback(uint64_t, const KinectImage& depthImage, co
     colourCopy.m_image = m_dataBuffer[m_bufferIndex].m_image.data();
     auto irCopy = irImage;
     irCopy.m_image = m_dataBuffer[m_bufferIndex].m_image.data();
+    auto shadowCopy = shadowImage;
+    shadowCopy.m_image = m_dataBuffer[m_bufferIndex].m_shadow.data();
     auto jointCopy = joints;
     jointCopy.m_joints = m_dataBuffer[m_bufferIndex].m_joints.data();
-    emit dataSignal(depthCopy, colourCopy, irCopy, jointCopy);
+    emit dataSignal(depthCopy, colourCopy, irCopy, shadowCopy, jointCopy);
 }
 
 void AzureKinectWindow::updateRenderOptions() const noexcept

@@ -48,9 +48,11 @@ public slots:
      * @param depthImage  The depth image data.
      * @param colourImage The colour image data.
      * @param irImage     The IR image data.
+     * @param shadowImage The body shadow image data.
      * @param joints      The joint data.
      */
-    void dataSlot(KinectImage depthImage, KinectImage colourImage, KinectImage irImage, KinectJoints joints) noexcept;
+    void dataSlot(KinectImage depthImage, KinectImage colourImage, KinectImage irImage, KinectImage shadowImage,
+        KinectJoints joints) noexcept;
 
 signals:
     /**
@@ -82,6 +84,7 @@ private:
     GLuint m_depthProgram = 0;
     GLuint m_colourProgram = 0;
     GLuint m_irProgram = 0;
+    GLuint m_shadowProgram = 0;
 
     // Screen quad
     GLuint m_quadVAO = 0;
@@ -91,6 +94,7 @@ private:
     GLuint m_depthTexture = 0;
     GLuint m_colourTexture = 0;
     GLuint m_irTexture = 0;
+    GLuint m_shadowTexture = 0;
 
     // Camera data
     GLuint m_inverseResUBO = 0;

@@ -113,7 +113,7 @@ void KinectRecord::shutdown() noexcept
 }
 
 void KinectRecord::dataCallback(const uint64_t time, const KinectImage& depthImage, const KinectImage& colourImage,
-    const KinectImage& irImage, const KinectJoints& joints) noexcept
+    const KinectImage& irImage, const KinectImage&, const KinectJoints& joints) noexcept
 {
     unique_lock<mutex> lock(m_lock);
     if (m_run && m_run2) {
