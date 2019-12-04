@@ -208,10 +208,12 @@ void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colo
     }
 
     if (m_bodySkeletonImage) {
+        m_sphereTransforms.resize(0);
+        m_cylinderTransforms.resize(0);
         // Copy skeleton data
         if (joints.m_length > 0) {
-            m_sphereTransforms.resize(0);
-            mat4 scale = glm::scale(mat4(1.0f), vec3(0.024f));
+            // Get joint positions
+            mat4 scale = glm::scale(mat4(1.0f), vec3(0.034f));
             mat4 spaceConvert(1.0f);
             if (m_colourImage) {
                 // Need to convert from depth space to colour space
@@ -228,12 +230,49 @@ void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colo
                 m_sphereTransforms.emplace_back(
                     spaceConvert * translate(mat4(1.0f), pointer->m_position.m_position * 0.001f) * scale);
             }
-            glBindBuffer(GL_ARRAY_BUFFER, m_sphereInstanceBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * joints.m_length,
-                reinterpret_cast<const GLvoid*>(m_sphereTransforms.data()), GL_STATIC_DRAW);
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+            // Get bone positions
+            for (auto& bone : s_boneList) {
+                const k4abt_joint_id_t joint1 = bone.first;
+                const k4abt_joint_id_t joint2 = bone.second;
+
+                if (joints.m_joints[joint1].m_confident && joints.m_joints[joint2].m_confident) {
+                    const vec3 start = joints.m_joints[joint1].m_position.m_position * 0.001f;
+                    const vec3 end = joints.m_joints[joint2].m_position.m_position * 0.001f;
+
+                    vec3 axis = end - start;
+                    float length = glm::length(axis);
+                    vec3 position = start + (axis * 0.5f);
+
+                    // Determine translation based on centre of the two joints
+                    mat4 translation = translate(mat4(1.0f), position);
+
+                    // Rotate so that the cylinders z-axis aligns with the bone direction
+                    vec3 zAxis(0.0f, 0.0f, 1.0f);
+                    mat3 rotation(1.0f);
+                    vec3 u1 = normalize(axis);
+                    vec3 v = cross(zAxis, u1);
+                    float sinTheta = glm::length(v);
+                    if (sinTheta > 0.00001f) {
+                        float cosTheta = dot(zAxis, u1);
+                        float scale2 = 1.0f / (1.0f + cosTheta);
+                        mat3 vx(vec3(0.0f, v[2], -v[1]), vec3(-v[2], 0.0f, v[0]), vec3(v[1], -v[0], 0.0f));
+                        mat3 vx2 = vx * vx;
+                        mat3 vx2Scaled = vx2 * scale2;
+                        rotation += vx + vx2Scaled;
+                    }
+
+                    // Combine rotations
+                    mat4 model = translation * mat4(rotation);
+
+                    // Scale is based on the new length of the cylinder
+                    mat4 scale2 = glm::scale(mat4(1.0f), vec3(0.014f, 0.014f, length));
+
+                    m_cylinderTransforms.emplace_back(spaceConvert * model * scale2);
+                }
+            }
+            // TODO: Render differently based on confidence level
         }
-        m_sphereInstances = joints.m_length;
     }
 
     if (m_refreshRender) {
@@ -407,6 +446,32 @@ void KinectWidget::initializeGL() noexcept
     glBindBuffer(GL_ARRAY_BUFFER, m_sphereInstanceBO);
     glBufferData(
         GL_ARRAY_BUFFER, sizeof(mat4) * 32, reinterpret_cast<const GLvoid*>(initialBlank.data()), GL_STATIC_DRAW);
+    for (uint32_t i = 0; i < 4; i++) {
+        // Set up the vertex attribute
+        glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), reinterpret_cast<void*>(sizeof(vec4) * i));
+        glEnableVertexAttribArray(2 + i);
+        glVertexAttribDivisor(2 + i, 1);
+    }
+    m_sphereTransforms.reserve(32);
+
+    // Create cylinder object
+    glGenVertexArrays(1, &m_cylinderVAO);
+
+    // Create VBO and IBOs
+    glGenBuffers(1, &m_cylinderVBO);
+    glGenBuffers(1, &m_cylinderIBO);
+
+    // Bind the cylinder VAO
+    glBindVertexArray(m_cylinderVAO);
+
+    // Create cylinder VBO and IBO data
+    m_cylinderElements = generateCylinder(12, m_cylinderVBO, m_cylinderIBO);
+
+    // Create cylinder instance buffer
+    glGenBuffers(1, &m_cylinderInstanceBO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_cylinderInstanceBO);
+    glBufferData(
+        GL_ARRAY_BUFFER, sizeof(mat4) * 31, reinterpret_cast<const GLvoid*>(initialBlank.data()), GL_STATIC_DRAW);
     for (uint32_t i = 0; i < 4; i++) {
         // Set up the vertex attribute
         glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), reinterpret_cast<void*>(sizeof(vec4) * i));
@@ -595,35 +660,27 @@ void KinectWidget::paintGL() noexcept
         // Render skeleton joints
         glEnable(GL_BLEND); // Enable blending
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        if (m_sphereInstances > 0) {
-            glUseProgram(m_skeletonProgram);
-            glBindVertexArray(m_sphereVAO);
-            glDrawElementsInstanced(GL_TRIANGLES, m_sphereElements, GL_UNSIGNED_INT, nullptr, m_sphereInstances);
+        glUseProgram(m_skeletonProgram);
+        if (m_cylinderTransforms.size() > 0) {
+            glBindBuffer(GL_ARRAY_BUFFER, m_cylinderInstanceBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * m_cylinderTransforms.size(),
+                reinterpret_cast<const GLvoid*>(m_cylinderTransforms.data()), GL_STATIC_DRAW);
+            glBindVertexArray(m_cylinderVAO);
+            glDrawElementsInstanced(GL_TRIANGLES, m_cylinderElements, GL_UNSIGNED_INT, nullptr,
+                static_cast<GLsizei>(m_cylinderTransforms.size()));
         }
-        // Render body skeleton
-        //
-        //                // Visualize bones
-        //        vector<Bone> bodyBones(s_boneList.size());
-        //        for (auto& bone : s_boneList) {
-        //            const k4abt_joint_id_t joint1 = bone.first;
-        //            const k4abt_joint_id_t joint2 = bone.second;
-        //
-        //            if (body.skeleton.joints[joint1].confidence_level >= K4ABT_JOINT_CONFIDENCE_LOW &&
-        //                body.skeleton.joints[joint2].confidence_level >= K4ABT_JOINT_CONFIDENCE_LOW) {
-        //                const k4a_float3_t& joint1Position = body.skeleton.joints[joint1].position;
-        //                const k4a_float3_t& joint2Position = body.skeleton.joints[joint2].position;
-        //
-        //                bodyBones.emplace_back(Position{joint1Position.xyz.x, joint1Position.xyz.y,
-        //                joint1Position.xyz.z},
-        //                    Position{joint2Position.xyz.x, joint2Position.xyz.y, joint2Position.xyz.z},
-        //                    body.skeleton.joints[joint1].confidence_level >= K4ABT_JOINT_CONFIDENCE_MEDIUM &&
-        //                        body.skeleton.joints[joint2].confidence_level >= K4ABT_JOINT_CONFIDENCE_MEDIUM);
-        //            }
-        //        }
-        // TODO:****
+        if (m_sphereTransforms.size() > 0) {
+            glBindBuffer(GL_ARRAY_BUFFER, m_sphereInstanceBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * m_sphereTransforms.size(),
+                reinterpret_cast<const GLvoid*>(m_sphereTransforms.data()), GL_STATIC_DRAW);
+            glBindVertexArray(m_sphereVAO);
+            glDrawElementsInstanced(GL_TRIANGLES, m_sphereElements, GL_UNSIGNED_INT, nullptr,
+                static_cast<GLsizei>(m_sphereTransforms.size()));
+        }
         glDisable(GL_BLEND);
     }
     glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void KinectWidget::cleanup() noexcept
@@ -647,6 +704,12 @@ void KinectWidget::cleanup() noexcept
     glDeleteBuffers(1, &m_sphereVBO);
     glDeleteBuffers(1, &m_sphereIBO);
     glDeleteVertexArrays(1, &m_sphereVAO);
+    glDeleteBuffers(1, &m_sphereInstanceBO);
+
+    glDeleteBuffers(1, &m_cylinderVBO);
+    glDeleteBuffers(1, &m_cylinderIBO);
+    glDeleteVertexArrays(1, &m_cylinderVAO);
+    glDeleteBuffers(1, &m_cylinderInstanceBO);
 
     glDeleteBuffers(1, &m_inverseResUBO);
     glDeleteBuffers(1, &m_cameraUBO);
@@ -698,7 +761,7 @@ bool KinectWidget::loadShaders(GLuint& shader, const GLuint vertexShader, const 
 }
 
 GLsizei KinectWidget::generateSphere(
-    const uint32_t tessU, const uint32_t tessV, const GLuint vertexBO, const GLuint indexBO)
+    const uint32_t tessU, const uint32_t tessV, const GLuint vertexBO, const GLuint indexBO) noexcept
 {
     // Init params
     const float dPhi = static_cast<float>(M_PI) / static_cast<float>(tessV);
@@ -717,30 +780,29 @@ GLsizei KinectWidget::generateSphere(
     // Set the top vertex
     vertexBuffer.emplace_back(vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
 
-    float fPhi = dPhi;
+    float phi = dPhi;
     for (uint32_t i = 0; i < tessV - 1; i++) {
         // Calculate initial value
-        const float rSinPhi = sinf(fPhi);
-        const float rCosPhi = cosf(fPhi);
+        const float rSinPhi = sinf(phi);
+        const float rCosPhi = cosf(phi);
 
         const float y = rCosPhi;
 
-        float fTheta = 0.0f;
+        float theta = 0.0f;
         for (uint32_t j = 0; j < tessU; j++) {
             // Calculate positions
-            const float cosTheta = cosf(fTheta);
-            const float sinTheta = sinf(fTheta);
+            const float cosTheta = cosf(theta);
+            const float sinTheta = sinf(theta);
 
             // Determine position
             const float x = rSinPhi * cosTheta;
             const float z = rSinPhi * sinTheta;
 
             // Create vertex
-
             vertexBuffer.emplace_back(vec3(x, y, z), vec3(x, y, z));
-            fTheta += dTheta;
+            theta += dTheta;
         }
-        fPhi += dPhi;
+        phi += dPhi;
     }
 
     // Set the bottom vertex
@@ -779,6 +841,131 @@ GLsizei KinectWidget::generateSphere(
         // Loop back to start if required
         const GLuint index = ((j + 1) > tessU) ? 1 : j + 1;
         indexBuffer.emplace_back(index + ((tessV - 2) * tessU));
+        indexBuffer.emplace_back(numVertices - 1);
+    }
+
+    // Fill Vertex Buffer Object
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBO);
+    glBufferData(GL_ARRAY_BUFFER, vertexBuffer.size() * sizeof(CustomVertex), vertexBuffer.data(), GL_STATIC_DRAW);
+
+    // Fill Index Buffer Object
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer.size() * sizeof(GLuint), indexBuffer.data(), GL_STATIC_DRAW);
+
+    // Specify location of data within buffer
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(CustomVertex), nullptr);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(CustomVertex),
+        reinterpret_cast<const GLvoid*>(offsetof(CustomVertex, m_normal)));
+    glEnableVertexAttribArray(1);
+
+    return numIndices;
+}
+
+GLsizei KinectWidget::generateCylinder(const uint32_t tessU, const GLuint vertexBO, const GLuint indexBO) noexcept
+{
+    // Init params
+    const float dTheta = static_cast<float>(M_PI + M_PI) / static_cast<float>(tessU);
+
+    // Determine required parameters
+    const uint32_t numVertices = tessU * 4 + 2;
+    const uint32_t numIndices = (tessU * 6) + (tessU * 6);
+
+    // Create the new primitive
+    std::vector<CustomVertex> vertexBuffer;
+    vertexBuffer.reserve(numVertices);
+    std::vector<GLuint> indexBuffer;
+    indexBuffer.reserve(numIndices);
+
+    // Set the top vertex
+    vertexBuffer.emplace_back(CustomVertex{vec3(0.0f, 0.0f, -0.5f), vec3(0.0f, 0.0f, -1.0f)});
+
+    // Create top ring
+    float theta = 0.0f;
+    for (uint32_t j = 0; j < tessU; j++) {
+        // Calculate positions
+        const float cosTheta = cosf(theta);
+        const float sinTheta = sinf(theta);
+
+        // Determine position
+        const float x = cosTheta;
+        const float y = sinTheta;
+
+        // Create vertex
+        vertexBuffer.emplace_back(CustomVertex{vec3(x, y, -0.5f), vec3(0.0f, 0.0f, -1.0f)});
+        theta += dTheta;
+    }
+
+    // Create inner rings
+    float z = -0.5f;
+    for (uint32_t i = 0; i < 2; i++) {
+        theta = 0.0f;
+        for (uint32_t j = 0; j < tessU; j++) {
+            // Calculate positions
+            const float cosTheta = cosf(theta);
+            const float sinTheta = sinf(theta);
+
+            // Determine position
+            const float x = cosTheta;
+            const float y = sinTheta;
+
+            // Create vertex
+            vertexBuffer.emplace_back(CustomVertex{vec3(x, y, z), normalize(vec3(x, y, 0.0f))});
+            theta += dTheta;
+        }
+        z = 0.5f;
+    }
+
+    // Create bottom ring
+    theta = 0.0f;
+    for (uint32_t j = 0; j < tessU; j++) {
+        // Calculate positions
+        const float cosTheta = cosf(theta);
+        const float sinTheta = sinf(theta);
+
+        // Determine position
+        const float x = cosTheta;
+        const float y = sinTheta;
+
+        // Create vertex
+        vertexBuffer.emplace_back(CustomVertex{vec3(x, y, 0.5f), vec3(0.0f, 0.0f, 1.0f)});
+        theta += dTheta;
+    }
+
+    // Set the bottom vertex
+    vertexBuffer.emplace_back(CustomVertex{vec3(0.0f, 0.0f, 0.5f), vec3(0.0f, 0.0f, 1.0f)});
+
+    // Create top
+    for (GLuint j = 1; j <= tessU; j++) {
+        // Top triangles all share same vertex point at pos 0
+        indexBuffer.emplace_back(0);
+        // Loop back to start if required
+        indexBuffer.emplace_back(((j + 1) > tessU) ? 1 : j + 1);
+        indexBuffer.emplace_back(j);
+    }
+
+    // Create inner triangles
+    for (GLuint j = 1; j <= tessU; j++) {
+        // Create indexes for each quad face (pair of triangles)
+        indexBuffer.emplace_back(j + (tessU));
+        // Loop back to start if required
+        const GLuint index = ((j + 1) > tessU) ? 1 : j + 1;
+        indexBuffer.emplace_back(index + (tessU));
+        indexBuffer.emplace_back(j + (2 * tessU));
+
+        indexBuffer.emplace_back(*(indexBuffer.end() - 2));
+        // Loop back to start if required
+        indexBuffer.emplace_back(index + (2 * tessU));
+        indexBuffer.emplace_back(*(indexBuffer.end() - 3));
+    }
+
+    // Create bottom
+    for (GLuint j = 1; j <= tessU; j++) {
+        // Bottom triangles all share same vertex point at pos numVertices - 1
+        indexBuffer.emplace_back(j + (3 * tessU));
+        // Loop back to start if required
+        const GLuint index = ((j + 1) > tessU) ? 1 : j + 1;
+        indexBuffer.emplace_back(index + (3 * tessU));
         indexBuffer.emplace_back(numVertices - 1);
     }
 

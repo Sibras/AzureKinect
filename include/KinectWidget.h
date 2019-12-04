@@ -26,6 +26,7 @@ class KinectWidget final
     , protected QOpenGLExtraFunctions
 {
     Q_OBJECT
+
 public:
     explicit KinectWidget(QWidget* parent) noexcept;
 
@@ -82,6 +83,7 @@ private:
     bool m_bodySkeletonImage = true;
     bool m_refreshRender = true;
 
+    // Render shaders
     GLuint m_depthProgram = 0;
     GLuint m_colourProgram = 0;
     GLuint m_irProgram = 0;
@@ -93,6 +95,7 @@ private:
     GLuint m_quadVBO = 0;
     GLuint m_quadIBO = 0;
 
+    // Image textures
     GLuint m_depthTexture = 0;
     GLuint m_colourTexture = 0;
     GLuint m_irTexture = 0;
@@ -104,8 +107,15 @@ private:
     GLuint m_sphereIBO = 0;
     GLsizei m_sphereElements = 0;
     GLuint m_sphereInstanceBO = 0;
-    GLsizei m_sphereInstances = 0;
     std::vector<glm::mat4> m_sphereTransforms;
+
+    // Cylinder data
+    GLuint m_cylinderVAO = 0;
+    GLuint m_cylinderVBO = 0;
+    GLuint m_cylinderIBO = 0;
+    GLsizei m_cylinderElements = 0;
+    GLuint m_cylinderInstanceBO = 0;
+    std::vector<glm::mat4> m_cylinderTransforms;
 
     // Camera data
     GLuint m_inverseResUBO = 0;
@@ -136,12 +146,21 @@ private:
 
     /**
      * Generates a sphere mesh.
-     * @param tessU    The horizontal tesselation.
-     * @param tessV    The vertical tesselation.
+     * @param tessU    The horizontal tessellation.
+     * @param tessV    The vertical tessellation.
      * @param vertexBO The vertex buffer to write to.
      * @param indexBO  The index buffer to write to.
      * @returns The number of indices in the sphere.
      */
-    GLsizei generateSphere(uint32_t tessU, uint32_t tessV, GLuint vertexBO, GLuint indexBO);
+    GLsizei generateSphere(uint32_t tessU, uint32_t tessV, GLuint vertexBO, GLuint indexBO) noexcept;
+
+    /**
+     * Generates a cylinder mesh.
+     * @param tessU    The horizontal tessellation.
+     * @param vertexBO The vertex buffer to write to.
+     * @param indexBO  The index buffer to write to.
+     * @returns The number of indices in the sphere.
+     */
+    GLsizei generateCylinder(uint32_t tessU, GLuint vertexBO, GLuint indexBO) noexcept;
 };
 } // namespace Ak
