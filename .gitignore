@@ -41,3 +41,4 @@ install/
 *.pdb
 packages/
 *.onnx
+_Resharper.Caches
