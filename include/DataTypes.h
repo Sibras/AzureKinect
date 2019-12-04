@@ -1,6 +1,4 @@
 ﻿#pragma once
-#include <cstdint>
-
 /**
  * Copyright Matthew Oliver
  *
@@ -16,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include <cstdint>
+#include <glm/gtx/type_aligned.hpp>
+#include <glm/vec3.hpp>
 
 namespace Ak {
 class KinectImage
@@ -56,7 +58,7 @@ public:
 
     Position& operator=(Position&& other) noexcept = default;
 
-    float m_x, m_y, m_z;
+    glm::vec3 m_position;
 };
 
 class Quaternion
@@ -74,7 +76,7 @@ public:
 
     Quaternion& operator=(Quaternion&& other) noexcept = default;
 
-    float m_x, m_y, m_z, m_w;
+    glm::vec4 m_rotation;
 };
 
 class Joint
@@ -140,5 +142,26 @@ public:
 
     Joint* m_joints;
     uint32_t m_length;
+};
+
+class CustomVertex
+{
+public:
+    CustomVertex() = default;
+
+    CustomVertex(const CustomVertex& other) = default;
+
+    CustomVertex(CustomVertex&& other) noexcept = default;
+
+    CustomVertex& operator=(const CustomVertex& other) = default;
+
+    CustomVertex& operator=(CustomVertex&& other) noexcept = default;
+
+    ~CustomVertex() = default;
+
+    CustomVertex(const glm::vec3& position, const glm::vec3& normal);
+
+    glm::vec3 m_position;
+    glm::vec3 m_normal;
 };
 } // namespace Ak

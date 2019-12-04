@@ -32,6 +32,9 @@ int main(int argc, char* argv[])
     format.setProfile(QSurfaceFormat::CoreProfile);
     format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
     format.setSwapInterval(1);
+#if _DEBUG
+    format.setOption(QSurfaceFormat::DebugContext);
+#endif
     QSurfaceFormat::setDefaultFormat(format);
 
     AzureKinectWindow w;

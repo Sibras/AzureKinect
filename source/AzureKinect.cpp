@@ -95,6 +95,7 @@ bool AzureKinect::initCamera() noexcept
         }
         return false;
     }
+
     return true;
 }
 
@@ -164,7 +165,6 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                         m_errorCallback("Failed to get skeleton from K4A capture");
                     }
                 }
-                body.id = k4abt_frame_get_body_id(bodyFrame, 0);
 
                 // Get the body pixel positions for the first detected body
                 const auto depthWidth = k4a_image_get_width_pixels(depthImage);
@@ -174,7 +174,7 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                 bodyPixel.resize(static_cast<size_t>(depthWidth) * depthHeight);
                 for (int i = 0; i < depthWidth * depthHeight; i++) {
                     const uint8_t bodyIndex = indexMapBuffer[i];
-                    if (bodyIndex != K4ABT_BODY_INDEX_MAP_BACKGROUND) {
+                    if (bodyIndex == 0) {
                         bodyPixel[i] = std::numeric_limits<uint8_t>::max();
                     } else {
                         // K4ABT_BODY_INDEX_MAP_BACKGROUND if not a body
@@ -199,16 +199,16 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                     }
                 }
             } else {
-                // Reset the buffers to contains invalid data
+                // Reset the buffers to contain invalid data
                 bodyPixel.assign(static_cast<size_t>(k4a_image_get_width_pixels(depthImage)) *
                         k4a_image_get_height_pixels(depthImage),
                     0);
-                bodyJoint.assign(K4ABT_JOINT_COUNT, {unknown, unknown2, false});
+                bodyJoint.resize(0);
             }
 
             // TODO: Send data to renderer
             if (m_data1Callback || m_data2Callback) {
-                const auto time = k4a_image_get_device_timestamp_usec(depthImage);
+                const auto time = k4abt_frame_get_device_timestamp_usec(bodyFrame);
                 const auto colourImage = k4a_capture_get_color_image(originalCapture);
                 const auto irImage = k4a_capture_get_ir_image(originalCapture);
                 KinectImage depthPass = {k4a_image_get_buffer(depthImage), k4a_image_get_width_pixels(depthImage),

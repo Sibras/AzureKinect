@@ -80,11 +80,13 @@ private:
     bool m_irImage = false;
     bool m_bodyShadowImage = true;
     bool m_bodySkeletonImage = true;
+    bool m_refreshRender = true;
 
     GLuint m_depthProgram = 0;
     GLuint m_colourProgram = 0;
     GLuint m_irProgram = 0;
     GLuint m_shadowProgram = 0;
+    GLuint m_skeletonProgram = 0;
 
     // Screen quad
     GLuint m_quadVAO = 0;
@@ -96,9 +98,20 @@ private:
     GLuint m_irTexture = 0;
     GLuint m_shadowTexture = 0;
 
+    // Sphere data
+    GLuint m_sphereVAO = 0;
+    GLuint m_sphereVBO = 0;
+    GLuint m_sphereIBO = 0;
+    GLsizei m_sphereElements = 0;
+    GLuint m_sphereInstanceBO = 0;
+    GLsizei m_sphereInstances = 0;
+    std::vector<glm::mat4> m_sphereTransforms;
+
     // Camera data
     GLuint m_inverseResUBO = 0;
     GLuint m_cameraUBO = 0;
+    GLuint m_transformUBO = 0;
+    GLuint m_imageUBO = 0;
 
     /** Cleanup any OpenGL resources */
     void cleanup() noexcept;
@@ -120,5 +133,15 @@ private:
      * @returns True if it succeeds, false if it fails.
      */
     bool loadShaders(GLuint& shader, GLuint vertexShader, GLuint fragmentShader) noexcept;
+
+    /**
+     * Generates a sphere mesh.
+     * @param tessU    The horizontal tesselation.
+     * @param tessV    The vertical tesselation.
+     * @param vertexBO The vertex buffer to write to.
+     * @param indexBO  The index buffer to write to.
+     * @returns The number of indices in the sphere.
+     */
+    GLsizei generateSphere(uint32_t tessU, uint32_t tessV, GLuint vertexBO, GLuint indexBO);
 };
 } // namespace Ak

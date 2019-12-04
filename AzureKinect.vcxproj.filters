@@ -88,6 +88,12 @@
     <None Include="source\ShadowImage.frag">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="source\Skeleton.vert">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="source\Skeleton.frag">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="include\AzureKinectWindow.h">

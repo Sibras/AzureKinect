@@ -16,6 +16,8 @@
 
 #include "DataTypes.h"
 
+using namespace glm;
+
 namespace Ak {
 KinectImage::KinectImage(uint8_t* const image, const int32_t width, const int32_t height, const int32_t stride)
     : m_image(image)
@@ -25,16 +27,11 @@ KinectImage::KinectImage(uint8_t* const image, const int32_t width, const int32_
 {}
 
 Position::Position(const float x, const float y, const float z)
-    : m_x(x)
-    , m_y(y)
-    , m_z(z)
+    : m_position(x, y, z)
 {}
 
 Quaternion::Quaternion(const float x, const float y, const float z, const float w)
-    : m_x(x)
-    , m_y(y)
-    , m_z(z)
-    , m_w(w)
+    : m_rotation(x, y, z, w)
 {}
 
 Joint::Joint(const Position& position, const Quaternion& rotation, const bool confident)
@@ -64,5 +61,10 @@ Bone::Bone(const Position&& joint1, const Position&& joint2, const bool&& confid
 KinectJoints::KinectJoints(Joint* joints, const uint32_t length)
     : m_joints(joints)
     , m_length(length)
+{}
+
+CustomVertex::CustomVertex(const vec3& position, const vec3& normal)
+    : m_position(position)
+    , m_normal(normal)
 {}
 } // namespace Ak

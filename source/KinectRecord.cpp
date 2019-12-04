@@ -294,13 +294,20 @@ bool KinectRecord::run() noexcept
                     m_skeletonFile << '\n';
                     m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_timeStamp << ',';
                     for (auto& i : s_jointNames) {
-                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_position.m_x << ',';
-                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_position.m_y << ',';
-                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_position.m_z << ',';
-                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_rotation.m_x << ',';
-                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_rotation.m_y << ',';
-                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_rotation.m_z << ',';
-                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_rotation.m_w << ',';
+                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_position.m_position.x
+                                       << ',';
+                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_position.m_position.y
+                                       << ',';
+                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_position.m_position.z
+                                       << ',';
+                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_rotation.m_rotation.x
+                                       << ',';
+                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_rotation.m_rotation.y
+                                       << ',';
+                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_rotation.m_rotation.z
+                                       << ',';
+                        m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_rotation.m_rotation.w
+                                       << ',';
                     }
                     ++m_nextBufferIndex;
                     m_nextBufferIndex = m_nextBufferIndex < m_dataBuffer.size() ? m_nextBufferIndex : 0;

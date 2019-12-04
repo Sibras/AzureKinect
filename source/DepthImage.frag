@@ -2,6 +2,7 @@
 
 layout(binding = 2) uniform InvResolution {
     vec2 invResolution;
+    vec2 windowsOffset;
 };
 layout(binding = 1) uniform sampler2D depthTexture;
 
@@ -10,7 +11,7 @@ out vec3 fragOutput;
 void main()
 {
     // Get UV coordinates
-    vec2 cUV = gl_FragCoord.xy * invResolution;
+    vec2 cUV = (gl_FragCoord.xy - windowsOffset) * invResolution;
 
     // Mirror the image
     cUV = 1.0f - cUV;

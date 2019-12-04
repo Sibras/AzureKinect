@@ -5,5 +5,7 @@
         <file>ColourImage.frag</file>
         <file>IRImage.frag</file>
         <file>ShadowImage.frag</file>
+        <file>Skeleton.frag</file>
+        <file>Skeleton.vert</file>
     </qresource>
 </RCC>
