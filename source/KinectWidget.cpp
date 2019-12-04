@@ -709,16 +709,13 @@ GLsizei KinectWidget::generateSphere(
     const uint32_t numIndices = (tessU * 6) + (tessU * (tessV - 2) * 6);
 
     // Create the new primitive
-    CustomVertex* vertexBuffer = static_cast<CustomVertex*>(malloc(numVertices * sizeof(CustomVertex)));
-    GLuint* indexBuffer = static_cast<GLuint*>(malloc(numIndices * sizeof(GLuint)));
+    vector<CustomVertex> vertexBuffer;
+    vertexBuffer.reserve(numVertices);
+    vector<GLuint> indexBuffer;
+    indexBuffer.reserve(numIndices);
 
-    // Set the top and bottom vertex and reuse
-    CustomVertex* vBuffer = vertexBuffer;
-    vBuffer->m_position = vec3(0.0f, 1.0f, 0.0f);
-    vBuffer->m_normal = vec3(0.0f, 1.0f, 0.0f);
-    vBuffer[numVertices - 1].m_position = vec3(0.0f, -1.0f, 0.0f);
-    vBuffer[numVertices - 1].m_normal = vec3(0.0f, -1.0f, 0.0f);
-    vBuffer++;
+    // Set the top vertex
+    vertexBuffer.emplace_back(vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
 
     float fPhi = dPhi;
     for (uint32_t i = 0; i < tessV - 1; i++) {
@@ -739,64 +736,59 @@ GLsizei KinectWidget::generateSphere(
             const float z = rSinPhi * sinTheta;
 
             // Create vertex
-            vBuffer->m_position = vec3(x, y, z);
-            vBuffer->m_normal = vec3(x, y, z);
-            vBuffer++;
+
+            vertexBuffer.emplace_back(vec3(x, y, z), vec3(x, y, z));
             fTheta += dTheta;
         }
         fPhi += dPhi;
     }
 
+    // Set the bottom vertex
+    vertexBuffer.emplace_back(vec3(0.0f, -1.0f, 0.0f), vec3(0.0f, -1.0f, 0.0f));
+
     // Create top
-    GLuint* iBuffer = indexBuffer;
     for (GLuint j = 1; j <= tessU; j++) {
         // Top triangles all share same vertex point at pos 0
-        *iBuffer++ = 0;
+        indexBuffer.emplace_back(0);
         // Loop back to start if required
-        *iBuffer++ = ((j + 1) > tessU) ? 1 : j + 1;
-        *iBuffer++ = j;
+        indexBuffer.emplace_back(((j + 1) > tessU) ? 1 : j + 1);
+        indexBuffer.emplace_back(j);
     }
 
     // Create inner triangles
     for (GLuint i = 0; i < tessV - 2; i++) {
         for (GLuint j = 1; j <= tessU; j++) {
             // Create indexes for each quad face (pair of triangles)
-            *iBuffer++ = j + (i * tessU);
+            indexBuffer.emplace_back(j + (i * tessU));
             // Loop back to start if required
             const GLuint index = ((j + 1) > tessU) ? 1 : j + 1;
-            *iBuffer++ = index + (i * tessU);
-            *iBuffer++ = j + ((i + 1) * tessU);
+            indexBuffer.emplace_back(index + (i * tessU));
+            indexBuffer.emplace_back(j + ((i + 1) * tessU));
 
-            *iBuffer = *(iBuffer - 2);
-            iBuffer++;
+            indexBuffer.emplace_back(*(indexBuffer.end() - 2));
             // Loop back to start if required
-            *iBuffer++ = index + ((i + 1) * tessU);
-            *iBuffer = *(iBuffer - 3);
-            iBuffer++;
+            indexBuffer.emplace_back(index + ((i + 1) * tessU));
+            indexBuffer.emplace_back(*(indexBuffer.end() - 3));
         }
     }
 
     // Create bottom
     for (GLuint j = 1; j <= tessU; j++) {
-        // Bottom triangles all share same vertex point at pos uiNumVertices - 1
-        *iBuffer++ = j + ((tessV - 2) * tessU);
+        // Bottom triangles all share same vertex point at pos numVertices - 1
+        indexBuffer.emplace_back(j + ((tessV - 2) * tessU));
         // Loop back to start if required
         const GLuint index = ((j + 1) > tessU) ? 1 : j + 1;
-        *iBuffer++ = index + ((tessV - 2) * tessU);
-        *iBuffer++ = numVertices - 1;
+        indexBuffer.emplace_back(index + ((tessV - 2) * tessU));
+        indexBuffer.emplace_back(numVertices - 1);
     }
 
     // Fill Vertex Buffer Object
     glBindBuffer(GL_ARRAY_BUFFER, vertexBO);
-    glBufferData(GL_ARRAY_BUFFER, numVertices * sizeof(CustomVertex), vertexBuffer, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertexBuffer.size() * sizeof(CustomVertex), vertexBuffer.data(), GL_STATIC_DRAW);
 
     // Fill Index Buffer Object
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * sizeof(GLuint), indexBuffer, GL_STATIC_DRAW);
-
-    // Cleanup allocated data
-    free(vertexBuffer);
-    free(indexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer.size() * sizeof(GLuint), indexBuffer.data(), GL_STATIC_DRAW);
 
     // Specify location of data within buffer
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(CustomVertex), nullptr);
