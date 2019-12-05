@@ -20,6 +20,7 @@ layout(binding = 3) uniform ImageResolution {
 layout(location = 0) in vec3 vertexPos;
 layout(location = 1) in vec3 normal;
 layout(location = 2) in mat4 transform;
+layout(location = 6) in mat4 transformIT;
 
 layout(location = 0) smooth out vec3 positionOut;
 layout(location = 1) smooth out vec3 normalOut;
@@ -54,7 +55,6 @@ void main()
     gl_Position = vec4(uv, approx.z / approx.w, 1.0f);
 
     // Transform normal using using the approximated projection
-    mat4 transformIT = transpose(inverse(transform));
     vec4 transNormal = transformIT * vec4(normal, 0.0f);
     normalOut = transNormal.xyz;
     positionOut = position.xyz;

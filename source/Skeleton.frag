@@ -13,6 +13,6 @@ void main()
 
     // Just use basic dot3 shading
     float shade = dot(viewDirection, vormal);
-    vec3 colour = vec3(1.0f, 1.0f, 0.0f) * shade;
-    fragOutput = vec4(colour, 0.8f);
+    vec3 colour = vec3(1.0f, 1.0f, 0.0f) * shade * shade; //heighten shadinh using dot3 squared
+    fragOutput = vec4(colour, 0.6f);
 }

@@ -101,13 +101,19 @@ private:
     GLuint m_irTexture = 0;
     GLuint m_shadowTexture = 0;
 
+    struct DualMat4
+    {
+        glm::mat4 m_mat1;
+        glm::mat4 m_mat2;
+    };
+
     // Sphere data
     GLuint m_sphereVAO = 0;
     GLuint m_sphereVBO = 0;
     GLuint m_sphereIBO = 0;
     GLsizei m_sphereElements = 0;
     GLuint m_sphereInstanceBO = 0;
-    std::vector<glm::mat4> m_sphereTransforms;
+    std::vector<DualMat4> m_sphereTransforms;
 
     // Cylinder data
     GLuint m_cylinderVAO = 0;
@@ -115,7 +121,7 @@ private:
     GLuint m_cylinderIBO = 0;
     GLsizei m_cylinderElements = 0;
     GLuint m_cylinderInstanceBO = 0;
-    std::vector<glm::mat4> m_cylinderTransforms;
+    std::vector<DualMat4> m_cylinderTransforms;
 
     // Camera data
     GLuint m_inverseResUBO = 0;
