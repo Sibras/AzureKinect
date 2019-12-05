@@ -122,43 +122,46 @@ void KinectRecord::dataCallback(const uint64_t time, const KinectImage& depthIma
         {
             // Copy data into local
             const uint32_t bufferMod = m_bufferIndex % m_dataBuffer.size();
+            bool validData = false;
 
             m_dataBuffer[bufferMod].m_timeStamp = time;
             if (m_depthImage) {
-                if (depthImage.m_image == nullptr) {
-                    return;
+                if (depthImage.m_image != nullptr) {
+                    // TODO:***************
                 }
-                // TODO:***************
             }
             if (m_colourImage) {
-                if (colourImage.m_image == nullptr) {
-                    return;
+                if (colourImage.m_image != nullptr) {
+                    // TODO:***************
                 }
-                // TODO:***************
             }
             if (m_irImage) {
-                if (irImage.m_image == nullptr) {
-                    return;
+                if (irImage.m_image != nullptr) {
+                    // TODO:***************
                 }
-                // TODO:***************
             }
 
             if (m_bodySkeleton) {
-                m_dataBuffer[bufferMod].m_joints.resize(0);
-                m_dataBuffer[bufferMod].m_joints.insert(m_dataBuffer[bufferMod].m_joints.begin(), joints.m_joints,
-                    joints.m_joints + static_cast<size_t>(joints.m_length));
+                if (joints.m_length > 0) {
+                    m_dataBuffer[bufferMod].m_joints.resize(0);
+                    m_dataBuffer[bufferMod].m_joints.insert(m_dataBuffer[bufferMod].m_joints.begin(), joints.m_joints,
+                        joints.m_joints + static_cast<size_t>(joints.m_length));
+                    validData = true;
+                }
             }
-            lock.lock();
-            ++m_bufferIndex;
-            ++m_remainingBuffers;
-            if (m_remainingBuffers == m_dataBuffer.size() - 1) {
-                // Error buffer overflow
-                m_run = false;
-                m_errorCallback("Write buffer has overflowed"s);
+            if (validData) {
+                lock.lock();
+                ++m_bufferIndex;
+                ++m_remainingBuffers;
+                if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size()) - 1) {
+                    // Error buffer overflow
+                    m_run = false;
+                    m_errorCallback("Write buffer has overflowed"s);
+                }
+                lock.unlock();
             }
         }
         // Notify wakeup
-        lock.unlock();
         m_condition.notify_one();
     }
 }
@@ -275,7 +278,7 @@ bool KinectRecord::run() noexcept
                 unique_lock<mutex> lock(m_lock);
                 m_run2 = true;
                 if (m_run && !m_shutdown) {
-                    m_condition.wait(lock, [this] { return (m_run && m_remainingBuffers > 0) || m_shutdown; });
+                    m_condition.wait(lock, [this] { return (m_run && m_remainingBuffers > 0) || m_shutdown || (!m_run && m_run2); });
                 }
                 if (!m_run || m_shutdown) {
                     break;
