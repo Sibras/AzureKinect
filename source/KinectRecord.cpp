@@ -218,7 +218,7 @@ bool KinectRecord::initOutput() noexcept
             m_skeletonFile.close();
         }
         // Create pose file
-        m_skeletonFile.open(poseFile);
+        m_skeletonFile.open(poseFile, ios::binary);
         if (!m_skeletonFile.is_open()) {
             return false;
         }
@@ -278,7 +278,8 @@ bool KinectRecord::run() noexcept
                 unique_lock<mutex> lock(m_lock);
                 m_run2 = true;
                 if (m_run && !m_shutdown) {
-                    m_condition.wait(lock, [this] { return (m_run && m_remainingBuffers > 0) || m_shutdown || (!m_run && m_run2); });
+                    m_condition.wait(
+                        lock, [this] { return (m_run && m_remainingBuffers > 0) || m_shutdown || (!m_run && m_run2); });
                 }
                 if (!m_run || m_shutdown) {
                     break;
@@ -294,7 +295,7 @@ bool KinectRecord::run() noexcept
                         }
                         --m_remainingBuffers;
                     }
-                    m_skeletonFile << '\n';
+                    m_skeletonFile << "\r\n";
                     m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_timeStamp << ',';
                     for (auto& i : s_jointNames) {
                         m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_joints[i.first].m_position.m_position.x
