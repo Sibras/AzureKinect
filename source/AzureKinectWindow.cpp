@@ -68,8 +68,6 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
         m_kinect.init(bind(&AzureKinectWindow::errorCallback, this, placeholders::_1),
             bind(&AzureKinectWindow::readyCallback, this),
             bind(&AzureKinectWindow::dataCallback, this, placeholders::_1, placeholders::_2, placeholders::_3,
-                placeholders::_4, placeholders::_5, placeholders::_6),
-            bind(&KinectRecord::dataCallback, &m_recorder, placeholders::_1, placeholders::_2, placeholders::_3,
                 placeholders::_4, placeholders::_5, placeholders::_6));
     });
 }
@@ -206,9 +204,12 @@ void AzureKinectWindow::readyCallback() const noexcept
     emit readySignal();
 }
 
-void AzureKinectWindow::dataCallback(uint64_t, const KinectImage& depthImage, const KinectImage& colourImage,
+void AzureKinectWindow::dataCallback(const uint64_t time, const KinectImage& depthImage, const KinectImage& colourImage,
     const KinectImage& irImage, const KinectImage& shadowImage, const KinectJoints& joints) noexcept
 {
+    // Call recorder callback
+    m_recorder.dataCallback(time, depthImage, colourImage, irImage, shadowImage, joints);
+
     // Need to copy data into local storage
     ++m_bufferIndex;
     m_bufferIndex = m_bufferIndex < m_dataBuffer.size() ? m_bufferIndex : 0;

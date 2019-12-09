@@ -48,12 +48,10 @@ public:
      * Initializes the azure kinect camera.
      * @param error (Optional) The callback used to signal errors.
      * @param ready (Optional) The callback used to signal camera is ready for operations.
-     * @param data1 (Optional) The callback used to signal updated image/position data.
-     * @param data2 (Optional) The callback used to signal updated image/position data.
+     * @param data  (Optional) The callback used to signal updated image/position data.
      * @returns True if it succeeds, false if it fails.
      */
-    bool init(errorCallback error = nullptr, readyCallback ready = nullptr, dataCallback data1 = nullptr,
-        dataCallback data2 = nullptr) noexcept;
+    bool init(errorCallback error = nullptr, readyCallback ready = nullptr, dataCallback data = nullptr) noexcept;
 
     /** Notify to shutdown.
      * @note This function is synchronous and will block until thread has completed.
@@ -66,8 +64,7 @@ private:
     k4abt_tracker_t m_tracker = nullptr;
     std::thread m_captureThread;
     errorCallback m_errorCallback = nullptr;
-    dataCallback m_data1Callback = nullptr;
-    dataCallback m_data2Callback = nullptr;
+    dataCallback m_dataCallback = nullptr;
 
     [[nodiscard]] bool initCamera() noexcept;
 

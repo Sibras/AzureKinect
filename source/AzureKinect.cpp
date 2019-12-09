@@ -28,12 +28,11 @@ AzureKinect::~AzureKinect()
     cleanup();
 }
 
-bool AzureKinect::init(errorCallback error, readyCallback ready, dataCallback data1, dataCallback data2) noexcept
+bool AzureKinect::init(errorCallback error, readyCallback ready, dataCallback data) noexcept
 {
     // Store callbacks
     m_errorCallback = move(error);
-    m_data1Callback = move(data1);
-    m_data2Callback = move(data2);
+    m_dataCallback = move(data);
 
     // Start capture thread running
     m_captureThread = thread(&AzureKinect::run, this, move(ready));
@@ -206,8 +205,7 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
                 bodyJoint.resize(0);
             }
 
-            // TODO: Send data to renderer
-            if (m_data1Callback || m_data2Callback) {
+            if (m_dataCallback) {
                 const auto time = k4abt_frame_get_device_timestamp_usec(bodyFrame);
                 const auto colourImage = k4a_capture_get_color_image(originalCapture);
                 const auto irImage = k4a_capture_get_ir_image(originalCapture);
@@ -220,12 +218,8 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
 
                 KinectImage shadow = {bodyPixel.data(), depthPass.m_width, depthPass.m_height, depthPass.m_width};
                 KinectJoints joints(bodyJoint.data(), static_cast<uint32_t>(bodyJoint.size()));
-                if (m_data1Callback) {
-                    m_data1Callback(time, depthPass, colourPass, irPass, shadow, joints);
-                }
-
-                if (m_data2Callback) {
-                    m_data2Callback(time, depthPass, colourPass, irPass, shadow, joints);
+                if (m_dataCallback) {
+                    m_dataCallback(time, depthPass, colourPass, irPass, shadow, joints);
                 }
 
                 k4a_image_release(colourImage);
