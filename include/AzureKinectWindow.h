@@ -116,10 +116,11 @@ private:
     void errorCallback(const std::string& message) const noexcept;
 
     /**
-     * Callback used by the camera thread to notify when it ready to begin recording
+     * Callback used by the camera thread to notify when its ready to begin recording
      * @note This provide thread safe, asynchronous handling.
+     * @param calibration The calibration information for the camera.
      */
-    void readyCallback() const noexcept;
+    void readyCallback(const KinectCalibration& calibration) const noexcept;
 
     /**
      * Callback used by the camera thread when new image/position information is available.

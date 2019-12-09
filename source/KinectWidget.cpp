@@ -151,8 +151,18 @@ void KinectWidget::setRenderOptions(const bool depthImage, const bool colourImag
     m_irImage = irImage;
     m_bodyShadowImage = bodyShadow;
     m_bodySkeletonImage = bodySkeleton;
-    m_refreshRender = true;
-    resizeGL(width(), height());
+
+    // Update required render settings
+    emit refreshRenderSignal();
+}
+
+void KinectWidget::updateCalibration(const KinectCalibration& calibration) noexcept
+{
+    m_calibration = calibration;
+
+    // Update the internal buffers for the correct size
+    emit refreshCalibrationSignal();
+    emit refreshRenderSignal();
 }
 
 void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colourImage, const KinectImage irImage,
@@ -273,58 +283,90 @@ void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colo
         }
     }
 
-    if (m_refreshRender) {
-        // This means that the display image has changed so we must update values
-
-        // Update the view/projection matrix
-        const mat4 view = lookAt(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(0.0, -1.0, 0.0));
-        mat4 projection = m_colourImage ? perspective(radians(59.0f), 90.0f / 59.0f, 0.01f, 30.0f) :
-                                          perspective(radians(65.0f), 75.0f / 65.0f, 0.01f, 30.0f);
-        projection[0][0] = -projection[0][0]; // Fix for mirroring
-        mat4 viewProjection = projection * view;
-        glBindBuffer(GL_UNIFORM_BUFFER, m_cameraUBO);
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(mat4), &viewProjection, GL_DYNAMIC_DRAW);
-
-        // Update transform buffer
-        struct Transform
-        {
-            vec2 m_c;
-            vec2 m_f;
-            vec2 m_k14;
-            vec2 m_k25;
-            vec2 m_k36;
-            vec2 m_p;
-        };
-        Transform trans;
-        // TODO: These values are currently hardcoded from k4a calibration, they should really be passed from k4a in
-        // case any settings are changed
-        if (m_colourImage) {
-            trans = {{637.340027f, 365.660858f}, {610.812317f, 610.779541f}, {0.685845017f, 0.561531842f},
-                {-2.91037941f, -2.73197317f}, {1.64123452, 1.56802034}, {0.000656008604, -1.53675392e-5f}};
-        } else {
-            trans = {{337.062073f, 341.250916f}, {504.216888f, 504.104401f}, {0.663816869f, 1.00248814f},
-                {0.385305285f, 0.549431324f}, {0.0257309489f, 0.121330343f}, {-0.000142980512, 9.78828975e-5f}};
-        }
-        glBindBuffer(GL_UNIFORM_BUFFER, m_transformUBO);
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(Transform), &trans, GL_STATIC_DRAW);
-
-        vec2 inverseRes;
-        if (m_depthImage) {
-            inverseRes = 1.0f / vec2(depthImage.m_width, depthImage.m_height);
-        } else if (m_colourImage) {
-            inverseRes = 1.0f / vec2(colourImage.m_width, colourImage.m_height);
-        } else if (m_irImage) {
-            inverseRes = 1.0f / vec2(irImage.m_width, irImage.m_height);
-        }
-        glBindBuffer(GL_ARRAY_BUFFER, m_imageUBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vec2), &inverseRes, GL_STATIC_DRAW);
-
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
-        m_refreshRender = false;
-    }
-
     // Signal that widget needs to be rendered with new data
     update();
+}
+
+void KinectWidget::refreshRenderSlot() noexcept
+{
+    // This means that the display image has changed so we must update values
+
+    // Update the view/projection matrix
+    const mat4 view = lookAt(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(0.0, -1.0, 0.0));
+    mat4 projection;
+    if (m_depthImage) {
+        projection = perspective(
+            radians(m_calibration.m_depthFOV.y), m_calibration.m_depthFOV.x / m_calibration.m_depthFOV.y, 0.01f, 30.0f);
+    } else if (m_colourImage) {
+        projection = perspective(radians(m_calibration.m_colourFOV.y),
+            m_calibration.m_colourFOV.x / m_calibration.m_colourFOV.y, 0.01f, 30.0f);
+    } else {
+        projection = perspective(
+            radians(m_calibration.m_irFOV.y), m_calibration.m_irFOV.x / m_calibration.m_irFOV.y, 0.01f, 30.0f);
+    }
+    projection[0][0] = -projection[0][0]; // Fix for mirroring
+    mat4 viewProjection = projection * view;
+    glBindBuffer(GL_UNIFORM_BUFFER, m_cameraUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(mat4), &viewProjection, GL_DYNAMIC_DRAW);
+
+    // Update transform buffer
+    glBindBuffer(GL_UNIFORM_BUFFER, m_transformUBO);
+    if (m_depthImage) {
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(BrownConradyTransform), &m_calibration.m_depthBC, GL_STATIC_DRAW);
+    } else if (m_colourImage) {
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(BrownConradyTransform), &m_calibration.m_colourBC, GL_STATIC_DRAW);
+    } else {
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(BrownConradyTransform), &m_calibration.m_irBC, GL_STATIC_DRAW);
+    }
+
+    vec2 inverseRes;
+    if (m_depthImage) {
+        inverseRes = 1.0f / vec2(m_calibration.m_depthDimensions);
+    } else if (m_colourImage) {
+        inverseRes = 1.0f / vec2(m_calibration.m_colourDimensions);
+    } else if (m_irImage) {
+        inverseRes = 1.0f / vec2(m_calibration.m_irDimensions);
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, m_imageUBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vec2), &inverseRes, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    // Update viewport in case of aspect ratio change
+    resizeGL(width(), height());
+}
+
+void KinectWidget::refreshCalibrationSlot() noexcept
+{
+    const uint32_t maxSize = glm::max(m_calibration.m_depthDimensions.x * m_calibration.m_depthDimensions.y * 2,
+        m_calibration.m_colourDimensions.x * m_calibration.m_colourDimensions.y * 4);
+
+    // Resize depth texture
+    glBindTexture(GL_TEXTURE_2D, m_depthTexture);
+    glTexStorage2D(
+        GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, m_calibration.m_depthDimensions.x, m_calibration.m_depthDimensions.y);
+    std::vector<uint8_t> initialBlank(maxSize, 0);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_calibration.m_depthDimensions.x, m_calibration.m_depthDimensions.y,
+        GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, reinterpret_cast<const GLvoid*>(initialBlank.data()));
+
+    // Resize colour texture
+    glBindTexture(GL_TEXTURE_2D, m_colourTexture);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, m_calibration.m_colourDimensions.x, m_calibration.m_colourDimensions.y);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_calibration.m_colourDimensions.x, m_calibration.m_colourDimensions.y,
+        GL_BGRA, GL_UNSIGNED_BYTE, reinterpret_cast<const GLvoid*>(initialBlank.data()));
+
+    // Resize IR texture
+    glBindTexture(GL_TEXTURE_2D, m_irTexture);
+    glTexStorage2D(
+        GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, m_calibration.m_irDimensions.x, m_calibration.m_irDimensions.y);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_calibration.m_irDimensions.x, m_calibration.m_irDimensions.y,
+        GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, reinterpret_cast<const GLvoid*>(initialBlank.data()));
+
+    // Resize shadow texture
+    glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, m_calibration.m_depthDimensions.x, m_calibration.m_depthDimensions.y);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_calibration.m_depthDimensions.x, m_calibration.m_depthDimensions.y,
+        GL_RED, GL_UNSIGNED_BYTE, reinterpret_cast<const GLvoid*>(initialBlank.data()));
 }
 
 void KinectWidget::initializeGL() noexcept
@@ -373,13 +415,6 @@ void KinectWidget::initializeGL() noexcept
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_quadIBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indexData), indexData, GL_STATIC_DRAW);
     glBindVertexArray(0);
-
-    // K4A image dimensions are as follows:
-    //  K4A_DEPTH_MODE_NFOV_2X2BINNED= {320, 288};
-    //  K4A_DEPTH_MODE_NFOV_UNBINNED= {640, 576};
-    //  K4A_DEPTH_MODE_WFOV_2X2BINNED= {512, 512};
-    //  K4A_DEPTH_MODE_WFOV_UNBINNED= {1024, 1024};
-    //  K4A_DEPTH_MODE_PASSIVE_IR= {1024, 1024}; otherwise IR equals same as depth
 
     // Create depth texture
     glGenTextures(1, &m_depthTexture);
@@ -576,20 +611,6 @@ void KinectWidget::resizeGL(const int width, const int height) noexcept
     m_viewportY = (height - newHeight) / 2;
     m_viewportW = newWidth;
     m_viewportH = newHeight;
-
-    // K4A depth camera FOV is as follows:
-    //  K4A_DEPTH_MODE_NFOV_2X2BINNED= 75x65;
-    //  K4A_DEPTH_MODE_NFOV_UNBINNED= 75x65;
-    //  K4A_DEPTH_MODE_WFOV_2X2BINNED= 120x120;
-    //  K4A_DEPTH_MODE_WFOV_UNBINNED= 120x120;
-    //  K4A_DEPTH_MODE_PASSIVE_IR= NA
-    // K4A colour camera FOV is as follows:
-    //  K4A_COLOR_RESOLUTION_720P= 90x59
-    //  K4A_COLOR_RESOLUTION_1080P= 90x59
-    //  K4A_COLOR_RESOLUTION_1440P= 90x59
-    //  K4A_COLOR_RESOLUTION_1536P= 90x74.3
-    //  K4A_COLOR_RESOLUTION_2160P= 90x59
-    //  K4A_COLOR_RESOLUTION_3072P= 90x74.3
 
     // Update inverse resolution
     struct ResolutionBuffer

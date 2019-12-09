@@ -42,6 +42,12 @@ public:
      */
     void setRenderOptions(bool depthImage, bool colourImage, bool irImage, bool bodyShadow, bool bodySkeleton) noexcept;
 
+    /**
+     * Updates the calibration information for the camera
+     * @param calibration The calibration data.
+     */
+    void updateCalibration(const KinectCalibration& calibration) noexcept;
+
 public slots:
 
     /**
@@ -55,12 +61,24 @@ public slots:
     void dataSlot(KinectImage depthImage, KinectImage colourImage, KinectImage irImage, KinectImage shadowImage,
         KinectJoints joints) noexcept;
 
+    /** Slot used to receive thread safe, asynchronous render update notifications. */
+    void refreshRenderSlot() noexcept;
+
+    /** Slot used to receive thread safe, asynchronous calibration update notifications. */
+    void refreshCalibrationSlot() noexcept;
+
 signals:
     /**
      * Signal used to pass asynchronous thread safe error messages.
      * @param message The message.
      */
     void errorSignal(const QString& message);
+
+    /** Signal used to pass asynchronous thread safe render update notifications. */
+    void refreshRenderSignal();
+
+    /** Signal used to pass asynchronous thread safe calibration update notifications. */
+    void refreshCalibrationSignal();
 
 protected:
     void initializeGL() noexcept override;
@@ -81,7 +99,6 @@ private:
     bool m_irImage = false;
     bool m_bodyShadowImage = true;
     bool m_bodySkeletonImage = true;
-    bool m_refreshRender = true;
 
     // Render shaders
     GLuint m_depthProgram = 0;
@@ -128,6 +145,9 @@ private:
     GLuint m_cameraUBO = 0;
     GLuint m_transformUBO = 0;
     GLuint m_imageUBO = 0;
+
+    // Calibration data
+    KinectCalibration m_calibration;
 
     /** Cleanup any OpenGL resources */
     void cleanup() noexcept;

@@ -52,6 +52,9 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     qRegisterMetaType<KinectJoints>();
     connect(this, &AzureKinectWindow::dataSignal, m_ui.openGLWidget, &KinectWidget::dataSlot);
     connect(m_ui.openGLWidget, &KinectWidget::errorSignal, this, &AzureKinectWindow::errorSlot);
+    connect(m_ui.openGLWidget, &KinectWidget::refreshRenderSignal, m_ui.openGLWidget, &KinectWidget::refreshRenderSlot);
+    connect(m_ui.openGLWidget, &KinectWidget::refreshCalibrationSignal, m_ui.openGLWidget,
+        &KinectWidget::refreshCalibrationSlot);
     connect(m_ui.actionDepth_Image, &QAction::triggered, this, &AzureKinectWindow::viewDepthImageSlot);
     connect(m_ui.actionColour_Image, &QAction::triggered, this, &AzureKinectWindow::viewColourImageSlot);
     connect(m_ui.actionIR_Image, &QAction::triggered, this, &AzureKinectWindow::viewIRImageSlot);
@@ -66,7 +69,7 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     QTimer::singleShot(0, this, [=]() {
         m_recorder.init(bind(&AzureKinectWindow::errorCallback, this, placeholders::_1));
         m_kinect.init(bind(&AzureKinectWindow::errorCallback, this, placeholders::_1),
-            bind(&AzureKinectWindow::readyCallback, this),
+            bind(&AzureKinectWindow::readyCallback, this, placeholders::_1),
             bind(&AzureKinectWindow::dataCallback, this, placeholders::_1, placeholders::_2, placeholders::_3,
                 placeholders::_4, placeholders::_5, placeholders::_6));
     });
@@ -197,8 +200,11 @@ void AzureKinectWindow::errorCallback(const std::string& message) const noexcept
     emit errorSignal(QString::fromStdString(message));
 }
 
-void AzureKinectWindow::readyCallback() const noexcept
+void AzureKinectWindow::readyCallback(const KinectCalibration& calibration) const noexcept
 {
+    // Send information to the render widget
+    m_ui.openGLWidget->updateCalibration(calibration);
+
     // Note: Currently assumes that the recorder thread has already initialised at this point
     // TODO: Correctly wait for both threads to have started
     emit readySignal();

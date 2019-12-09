@@ -95,10 +95,120 @@ bool AzureKinect::initCamera() noexcept
         return false;
     }
 
+    // Setup internal conversion data
+    m_calibration.m_depthBC = {{sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.cx,
+                                   sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.cy},
+        {sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.fx,
+            sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.fy},
+        {sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.k1,
+            sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.k4},
+        {sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.k2,
+            sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.k5},
+        {sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.k3,
+            sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.k6},
+        {sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.p1,
+            sensorCalibration.depth_camera_calibration.intrinsics.parameters.param.p2}};
+    m_calibration.m_colourBC = {{sensorCalibration.color_camera_calibration.intrinsics.parameters.param.cx,
+                                    sensorCalibration.color_camera_calibration.intrinsics.parameters.param.cy},
+        {sensorCalibration.color_camera_calibration.intrinsics.parameters.param.fx,
+            sensorCalibration.color_camera_calibration.intrinsics.parameters.param.fy},
+        {sensorCalibration.color_camera_calibration.intrinsics.parameters.param.k1,
+            sensorCalibration.color_camera_calibration.intrinsics.parameters.param.k4},
+        {sensorCalibration.color_camera_calibration.intrinsics.parameters.param.k2,
+            sensorCalibration.color_camera_calibration.intrinsics.parameters.param.k5},
+        {sensorCalibration.color_camera_calibration.intrinsics.parameters.param.k3,
+            sensorCalibration.color_camera_calibration.intrinsics.parameters.param.k6},
+        {sensorCalibration.color_camera_calibration.intrinsics.parameters.param.p1,
+            sensorCalibration.color_camera_calibration.intrinsics.parameters.param.p2}};
+    m_calibration.m_irBC = m_calibration.m_depthBC;
+
+    m_calibration.m_jointToDepth = glm::mat4(1.0f);
+    m_calibration.m_jointToColour =
+        glm::mat4(sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[0],
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[1],
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[2], 0.0f,
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[3],
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[4],
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[5], 0.0f,
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[6],
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[7],
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[8], 0.0f,
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].translation[0],
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].translation[1],
+            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].translation[2], 1.0f);
+    m_calibration.m_jointToIR = glm::mat4(1.0f);
+
+    // K4A depth camera FOV is as follows:
+    //  K4A_DEPTH_MODE_NFOV_2X2BINNED= 75x65;
+    //  K4A_DEPTH_MODE_NFOV_UNBINNED= 75x65;
+    //  K4A_DEPTH_MODE_WFOV_2X2BINNED= 120x120;
+    //  K4A_DEPTH_MODE_WFOV_UNBINNED= 120x120;
+    //  K4A_DEPTH_MODE_PASSIVE_IR= NA
+    if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_NFOV_2X2BINNED ||
+        sensorCalibration.depth_mode == K4A_DEPTH_MODE_NFOV_UNBINNED) {
+        m_calibration.m_depthFOV = {75.0f, 65.0f};
+    } else {
+        m_calibration.m_depthFOV = {120.0f, 120.0f};
+    }
+
+    // K4A colour camera FOV is as follows:
+    //  K4A_COLOR_RESOLUTION_720P= 90x59
+    //  K4A_COLOR_RESOLUTION_1080P= 90x59
+    //  K4A_COLOR_RESOLUTION_1440P= 90x59
+    //  K4A_COLOR_RESOLUTION_1536P= 90x74.3
+    //  K4A_COLOR_RESOLUTION_2160P= 90x59
+    //  K4A_COLOR_RESOLUTION_3072P= 90x74.3
+    if (sensorCalibration.color_resolution == K4A_COLOR_RESOLUTION_1536P ||
+        sensorCalibration.color_resolution == K4A_COLOR_RESOLUTION_3072P) {
+        m_calibration.m_colourFOV = {90.0f, 74.3f};
+    } else {
+        m_calibration.m_colourFOV = {90.0f, 59.0f};
+    }
+
+    m_calibration.m_irFOV = m_calibration.m_depthFOV;
+
+    // K4A image dimensions are as follows:
+    //  K4A_DEPTH_MODE_NFOV_2X2BINNED= {320, 288};
+    //  K4A_DEPTH_MODE_NFOV_UNBINNED= {640, 576};
+    //  K4A_DEPTH_MODE_WFOV_2X2BINNED= {512, 512};
+    //  K4A_DEPTH_MODE_WFOV_UNBINNED= {1024, 1024};
+    //  K4A_DEPTH_MODE_PASSIVE_IR= {1024, 1024}; otherwise IR equals same as depth
+    if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_NFOV_2X2BINNED) {
+        m_calibration.m_depthDimensions = {320.0f, 288.0f};
+    } else if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_NFOV_UNBINNED) {
+        m_calibration.m_depthDimensions = {640.0f, 576.0f};
+    } else if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_WFOV_2X2BINNED) {
+        m_calibration.m_depthDimensions = {512.0f, 512.0f};
+    } else if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_WFOV_UNBINNED) {
+        m_calibration.m_depthDimensions = {1024.0f, 1024.0f};
+    } else {
+        m_calibration.m_depthDimensions = {1024.0f, 1024.0f};
+    }
+
+    if (sensorCalibration.color_resolution == K4A_COLOR_RESOLUTION_720P) {
+        m_calibration.m_colourDimensions = {1280, 720};
+    } else if (sensorCalibration.color_resolution == K4A_COLOR_RESOLUTION_1080P) {
+        m_calibration.m_colourDimensions = {1920, 1080};
+    } else if (sensorCalibration.color_resolution == K4A_COLOR_RESOLUTION_1440P) {
+        m_calibration.m_colourDimensions = {2560, 1440};
+    } else if (sensorCalibration.color_resolution == K4A_COLOR_RESOLUTION_1536P) {
+        m_calibration.m_colourDimensions = {2048, 1536};
+    } else if (sensorCalibration.color_resolution == K4A_COLOR_RESOLUTION_2160P) {
+        m_calibration.m_colourDimensions = {3840, 2160};
+    } else if (sensorCalibration.color_resolution == K4A_COLOR_RESOLUTION_3072P) {
+        m_calibration.m_colourDimensions = {4096, 3072};
+    }
+
+    if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_PASSIVE_IR) {
+        m_calibration.m_irDimensions = {1024, 1024};
+    } else {
+        m_calibration.m_irDimensions = m_calibration.m_depthDimensions;
+    }
+
     return true;
 }
 
-bool AzureKinect::run(const std::function<void()>& ready) noexcept
+bool AzureKinect::run(const readyCallback& ready) noexcept
 {
     if (!initCamera()) {
         cleanup();
@@ -113,7 +223,7 @@ bool AzureKinect::run(const std::function<void()>& ready) noexcept
 
     // Trigger callback
     if (ready) {
-        ready();
+        ready(m_calibration);
     }
 
     while (!m_shutdown) {

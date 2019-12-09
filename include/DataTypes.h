@@ -48,7 +48,7 @@ class Position
 public:
     Position() = default;
 
-    Position(const float x, const float y, const float z);
+    Position(float x, float y, float z);
 
     Position(const Position& other) = default;
 
@@ -66,7 +66,7 @@ class Quaternion
 public:
     Quaternion() = default;
 
-    Quaternion(const float x, const float y, const float z, const float w);
+    Quaternion(float x, float y, float z, float w);
 
     Quaternion(const Quaternion& other) = default;
 
@@ -84,7 +84,7 @@ class Joint
 public:
     Joint() = default;
 
-    Joint(const Position& position, const Quaternion& rotation, const bool confident);
+    Joint(const Position& position, const Quaternion& rotation, bool confident);
 
     Joint(const Position&& position, const Quaternion&& rotation, const bool&& confident);
 
@@ -106,7 +106,7 @@ class Bone
 public:
     Bone() = default;
 
-    Bone(const Position& joint1, const Position& joint2, const bool confident);
+    Bone(const Position& joint1, const Position& joint2, bool confident);
 
     Bone(const Position&& joint1, const Position&& joint2, const bool&& confident);
 
@@ -163,5 +163,46 @@ public:
 
     glm::vec3 m_position;
     glm::vec3 m_normal;
+};
+
+class BrownConradyTransform
+{
+public:
+    BrownConradyTransform() = default;
+
+    BrownConradyTransform(const glm::vec2&& c, const glm::vec2&& f, const glm::vec2&& k14, const glm::vec2&& k25,
+        const glm::vec2&& k36, const glm::vec2&& p);
+
+    BrownConradyTransform(const BrownConradyTransform& other) = default;
+
+    BrownConradyTransform(BrownConradyTransform&& other) noexcept = default;
+
+    BrownConradyTransform& operator=(const BrownConradyTransform& other) = default;
+
+    BrownConradyTransform& operator=(BrownConradyTransform&& other) noexcept = default;
+
+    glm::vec2 m_c;
+    glm::vec2 m_f;
+    glm::vec2 m_k14;
+    glm::vec2 m_k25;
+    glm::vec2 m_k36;
+    glm::vec2 m_p;
+};
+
+class KinectCalibration
+{
+public:
+    BrownConradyTransform m_depthBC;
+    BrownConradyTransform m_colourBC;
+    BrownConradyTransform m_irBC;
+    glm::mat4 m_jointToDepth;
+    glm::mat4 m_jointToColour;
+    glm::mat4 m_jointToIR;
+    glm::vec2 m_depthFOV;
+    glm::vec2 m_colourFOV;
+    glm::vec2 m_irFOV;
+    glm::ivec2 m_depthDimensions;
+    glm::ivec2 m_colourDimensions;
+    glm::ivec2 m_irDimensions;
 };
 } // namespace Ak

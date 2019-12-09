@@ -40,7 +40,7 @@ public:
     AzureKinect& operator=(AzureKinect&& other) noexcept = delete;
 
     using errorCallback = std::function<void(const std::string&)>;
-    using readyCallback = std::function<void()>;
+    using readyCallback = std::function<void(const KinectCalibration&)>;
     using dataCallback = std::function<void(
         uint64_t, const KinectImage&, const KinectImage&, const KinectImage&, const KinectImage&, const KinectJoints&)>;
 
@@ -65,6 +65,7 @@ private:
     std::thread m_captureThread;
     errorCallback m_errorCallback = nullptr;
     dataCallback m_dataCallback = nullptr;
+    KinectCalibration m_calibration;
 
     [[nodiscard]] bool initCamera() noexcept;
 

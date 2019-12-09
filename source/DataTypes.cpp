@@ -67,4 +67,14 @@ CustomVertex::CustomVertex(const vec3& position, const vec3& normal)
     : m_position(position)
     , m_normal(normal)
 {}
+
+BrownConradyTransform::BrownConradyTransform(
+    const vec2&& c, const vec2&& f, const vec2&& k14, const vec2&& k25, const vec2&& k36, const vec2&& p)
+    : m_c(c)
+    , m_f(f)
+    , m_k14(k14)
+    , m_k25(k25)
+    , m_k36(k36)
+    , m_p(p)
+{}
 } // namespace Ak
