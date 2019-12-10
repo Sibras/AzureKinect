@@ -200,10 +200,11 @@ void AzureKinectWindow::errorCallback(const std::string& message) const noexcept
     emit errorSignal(QString::fromStdString(message));
 }
 
-void AzureKinectWindow::readyCallback(const KinectCalibration& calibration) const noexcept
+void AzureKinectWindow::readyCallback(const KinectCalibration& calibration) noexcept
 {
-    // Send information to the render widget
+    // Send information to the render widget and recorder
     m_ui.openGLWidget->updateCalibration(calibration);
+    m_recorder.updateCalibration(calibration);
 
     // Note: Currently assumes that the recorder thread has already initialised at this point
     // TODO: Correctly wait for both threads to have started

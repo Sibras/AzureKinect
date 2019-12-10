@@ -120,7 +120,7 @@ private:
      * @note This provide thread safe, asynchronous handling.
      * @param calibration The calibration information for the camera.
      */
-    void readyCallback(const KinectCalibration& calibration) const noexcept;
+    void readyCallback(const KinectCalibration& calibration) noexcept;
 
     /**
      * Callback used by the camera thread when new image/position information is available.

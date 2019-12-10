@@ -117,52 +117,66 @@ void KinectRecord::dataCallback(const uint64_t time, const KinectImage& depthIma
 {
     unique_lock<mutex> lock(m_lock);
     if (m_run && m_run2) {
+        m_processEncode = false;
         lock.unlock();
+        bool validData = false;
         // Only write out data when running and setup has completed
-        {
-            // Copy data into local
-            const uint32_t bufferMod = m_bufferIndex % m_dataBuffer.size();
-            bool validData = false;
 
-            m_dataBuffer[bufferMod].m_timeStamp = time;
-            if (m_depthImage) {
-                if (depthImage.m_image != nullptr) {
-                    // TODO:***************
-                }
-            }
-            if (m_colourImage) {
-                if (colourImage.m_image != nullptr) {
-                    // TODO:***************
-                }
-            }
-            if (m_irImage) {
-                if (irImage.m_image != nullptr) {
-                    // TODO:***************
-                }
-            }
+        // Copy data into local
+        const uint32_t bufferMod = m_bufferIndex % m_dataBuffer.size();
 
-            if (m_bodySkeleton) {
-                if (joints.m_length > 0) {
-                    m_dataBuffer[bufferMod].m_joints.resize(0);
-                    m_dataBuffer[bufferMod].m_joints.insert(m_dataBuffer[bufferMod].m_joints.begin(), joints.m_joints,
-                        joints.m_joints + static_cast<size_t>(joints.m_length));
-                    validData = true;
+        m_dataBuffer[bufferMod].m_timeStamp = time;
+        if (m_depthImage) {
+            if (depthImage.m_image != nullptr) {
+                if (!m_encoders[0].addFrame(
+                        depthImage.m_image, depthImage.m_width, depthImage.m_height, depthImage.m_stride)) {
+                    return;
                 }
-            }
-            if (validData) {
-                lock.lock();
-                ++m_bufferIndex;
-                ++m_remainingBuffers;
-                if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size()) - 1) {
-                    // Error buffer overflow
-                    m_run = false;
-                    m_errorCallback("Write buffer has overflowed"s);
-                }
-                lock.unlock();
+                m_processEncode = true;
             }
         }
+        if (m_colourImage) {
+            if (colourImage.m_image != nullptr) {
+                if (!m_encoders[1].addFrame(
+                        colourImage.m_image, colourImage.m_width, colourImage.m_height, colourImage.m_stride)) {
+                    return;
+                }
+                m_processEncode = true;
+            }
+        }
+        if (m_irImage) {
+            if (irImage.m_image != nullptr) {
+                if (!m_encoders[2].addFrame(irImage.m_image, irImage.m_width, irImage.m_height, irImage.m_stride)) {
+                    return;
+                }
+                m_processEncode = true;
+            }
+        }
+
+        if (m_bodySkeleton) {
+            if (joints.m_length > 0) {
+                m_dataBuffer[bufferMod].m_joints.resize(0);
+                m_dataBuffer[bufferMod].m_joints.insert(m_dataBuffer[bufferMod].m_joints.begin(), joints.m_joints,
+                    joints.m_joints + static_cast<size_t>(joints.m_length));
+                validData = true;
+            }
+        }
+        if (validData) {
+            lock.lock();
+            ++m_bufferIndex;
+            ++m_remainingBuffers;
+            if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size()) - 1) {
+                // Error buffer overflow
+                m_run = false;
+                m_errorCallback("Write buffer has overflowed"s);
+            }
+            lock.unlock();
+        }
+
         // Notify wakeup
-        m_condition.notify_one();
+        if (validData || m_processEncode) {
+            m_condition.notify_one();
+        }
     }
 }
 
@@ -175,8 +189,16 @@ void KinectRecord::setRecordOptions(
     m_bodySkeleton = bodySkeleton;
 }
 
+void KinectRecord::updateCalibration(const KinectCalibration& calibration) noexcept
+{
+    m_calibration = calibration;
+}
+
 bool KinectRecord::initOutput() noexcept
 {
+    // Close any existing recordings
+    cleanupOutput();
+
     // Create output directory
     const string pidString = "PID"s + toString(m_pid, 3);
     string baseDir = "./";
@@ -210,13 +232,9 @@ bool KinectRecord::initOutput() noexcept
     ((poseFile += '/') += pidString) += timeString;
 
     string videoFile = poseFile;
-    videoFile += ".mkv";
     poseFile += ".csv";
 
     if (m_bodySkeleton) {
-        if (m_skeletonFile.is_open()) {
-            m_skeletonFile.close();
-        }
         // Create pose file
         m_skeletonFile.open(poseFile, ios::binary);
         if (!m_skeletonFile.is_open()) {
@@ -238,7 +256,37 @@ bool KinectRecord::initOutput() noexcept
     }
 
     // Start recording
-    // TODO:
+    if (m_depthImage || m_colourImage || m_irImage) {
+        uint32_t numThreads = std::max(static_cast<uint32_t>((std::thread::hardware_concurrency() - 4) /
+                                           (m_depthImage + m_colourImage + m_irImage)),
+            1U);
+        numThreads = std::min(numThreads, 8U);
+
+        if (m_depthImage) {
+            if (!m_encoders[0].init(videoFile + "_depth.mp4", m_calibration.m_depthDimensions.x,
+                    m_calibration.m_depthDimensions.y, m_calibration.m_fps, AV_PIX_FMT_GRAY16LE, numThreads,
+                    m_errorCallback)) {
+                cleanupOutput();
+                return false;
+            }
+        }
+        if (m_colourImage) {
+            if (!m_encoders[1].init(videoFile + "_colour.mp4", m_calibration.m_colourDimensions.x,
+                    m_calibration.m_colourDimensions.y, m_calibration.m_fps, AV_PIX_FMT_BGRA, numThreads,
+                    m_errorCallback)) {
+                cleanupOutput();
+                return false;
+            }
+        }
+        if (m_irImage) {
+            if (!m_encoders[2].init(videoFile + "_ir.mp4", m_calibration.m_irDimensions.x,
+                    m_calibration.m_irDimensions.y, m_calibration.m_fps, AV_PIX_FMT_GRAY16LE, numThreads,
+                    m_errorCallback)) {
+                cleanupOutput();
+                return false;
+            }
+        }
+    }
 
     return true;
 }
@@ -249,7 +297,9 @@ void KinectRecord::cleanupOutput() noexcept
     if (m_skeletonFile.is_open()) {
         m_skeletonFile.close();
     }
-    // TODO:
+    for (auto& i : m_encoders) {
+        i.shutdown();
+    }
 }
 
 bool KinectRecord::run() noexcept
@@ -278,8 +328,10 @@ bool KinectRecord::run() noexcept
                 unique_lock<mutex> lock(m_lock);
                 m_run2 = true;
                 if (m_run && !m_shutdown) {
-                    m_condition.wait(
-                        lock, [this] { return (m_run && m_remainingBuffers > 0) || m_shutdown || (!m_run && m_run2); });
+                    m_condition.wait(lock, [this] {
+                        return (m_run && (m_remainingBuffers > 0 || m_processEncode)) || m_shutdown ||
+                            (!m_run && m_run2);
+                    });
                 }
                 if (!m_run || m_shutdown) {
                     break;
@@ -320,7 +372,24 @@ bool KinectRecord::run() noexcept
             }
 
             // Encode images
-            // TODO:
+            if (m_depthImage) {
+                if (!m_encoders[0].process()) {
+                    lock_guard<mutex> lock(m_lock);
+                    break;
+                }
+            }
+            if (m_colourImage) {
+                if (!m_encoders[1].process()) {
+                    lock_guard<mutex> lock(m_lock);
+                    break;
+                }
+            }
+            if (m_irImage) {
+                if (!m_encoders[2].process()) {
+                    lock_guard<mutex> lock(m_lock);
+                    break;
+                }
+            }
         }
         // Cleanup current run
         {
@@ -336,5 +405,8 @@ bool KinectRecord::run() noexcept
     return true;
 }
 
-void KinectRecord::cleanup() noexcept {}
+void KinectRecord::cleanup() noexcept
+{
+    cleanupOutput();
+}
 } // namespace Ak

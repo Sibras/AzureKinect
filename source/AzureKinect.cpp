@@ -205,6 +205,14 @@ bool AzureKinect::initCamera() noexcept
         m_calibration.m_irDimensions = m_calibration.m_depthDimensions;
     }
 
+    if (deviceConfig.camera_fps == K4A_FRAMES_PER_SECOND_5) {
+        m_calibration.m_fps = 5;
+    } else if (deviceConfig.camera_fps == K4A_FRAMES_PER_SECOND_15) {
+        m_calibration.m_fps = 15;
+    } else if (deviceConfig.camera_fps == K4A_FRAMES_PER_SECOND_30) {
+        m_calibration.m_fps = 30;
+    }
+
     return true;
 }
 

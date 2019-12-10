@@ -16,6 +16,7 @@
  */
 
 #include "DataTypes.h"
+#include "Encoder.h"
 
 #include <array>
 #include <atomic>
@@ -88,6 +89,12 @@ public:
      */
     void setRecordOptions(bool depthImage, bool colourImage, bool irImage, bool bodySkeleton) noexcept;
 
+    /**
+     * Updates the calibration information for the camera
+     * @param calibration The calibration data.
+     */
+    void updateCalibration(const KinectCalibration& calibration) noexcept;
+
 private:
     std::atomic_bool m_shutdown = false;
     std::atomic_bool m_run = false;
@@ -104,6 +111,7 @@ private:
     std::array<DataBuffers, 16 /*must be power of 2*/> m_dataBuffer;
     std::atomic_uint32_t m_bufferIndex = 0;
     std::atomic_int32_t m_remainingBuffers = 0;
+    std::atomic_bool m_processEncode = false;
     uint32_t m_nextBufferIndex = 0;
     bool m_depthImage = true;
     bool m_colourImage = false;
@@ -111,8 +119,10 @@ private:
     bool m_bodySkeleton = true;
     std::ofstream m_skeletonFile;
     std::atomic_uint32_t m_pid = 0;
+    std::array<Encoder, 3> m_encoders;
     std::thread m_recordThread;
     errorCallback m_errorCallback = nullptr;
+    KinectCalibration m_calibration;
 
     [[nodiscard]] bool initOutput() noexcept;
 
