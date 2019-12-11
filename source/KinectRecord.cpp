@@ -27,7 +27,7 @@ using namespace std;
 namespace Ak {
 // Define the joint string names
 static array<pair<k4abt_joint_id_t, std::string>, 32> s_jointNames = {std::make_pair(K4ABT_JOINT_PELVIS, "PELVIS"),
-    std::make_pair(K4ABT_JOINT_SPINE_NAVAL, "SPINE_NAVAL"), std::make_pair(K4ABT_JOINT_SPINE_CHEST, "SPINE_CHEST"),
+    std::make_pair(K4ABT_JOINT_SPINE_NAVEL, "SPINE_NAVAL"), std::make_pair(K4ABT_JOINT_SPINE_CHEST, "SPINE_CHEST"),
     std::make_pair(K4ABT_JOINT_NECK, "NECK"), std::make_pair(K4ABT_JOINT_CLAVICLE_LEFT, "CLAVICLE_LEFT"),
     std::make_pair(K4ABT_JOINT_SHOULDER_LEFT, "SHOULDER_LEFT"), std::make_pair(K4ABT_JOINT_ELBOW_LEFT, "ELBOW_LEFT"),
     std::make_pair(K4ABT_JOINT_WRIST_LEFT, "WRIST_LEFT"), std::make_pair(K4ABT_JOINT_HAND_LEFT, "HAND_LEFT"),

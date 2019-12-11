@@ -114,7 +114,7 @@ void APIENTRY debugCallback(const uint32_t source, const uint32_t type, uint32_t
 #endif
 
 static array<pair<k4abt_joint_id_t, k4abt_joint_id_t>, 31> s_boneList = {
-    make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_SPINE_NAVAL), make_pair(K4ABT_JOINT_SPINE_NAVAL, K4ABT_JOINT_PELVIS),
+    make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_SPINE_NAVEL), make_pair(K4ABT_JOINT_SPINE_NAVEL, K4ABT_JOINT_PELVIS),
     make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_NECK), make_pair(K4ABT_JOINT_NECK, K4ABT_JOINT_HEAD),
     make_pair(K4ABT_JOINT_HEAD, K4ABT_JOINT_NOSE), make_pair(K4ABT_JOINT_SPINE_CHEST, K4ABT_JOINT_CLAVICLE_LEFT),
     make_pair(K4ABT_JOINT_CLAVICLE_LEFT, K4ABT_JOINT_SHOULDER_LEFT),

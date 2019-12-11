@@ -102,7 +102,7 @@ bool AzureKinect::initCamera() noexcept
 
     // Create Body Tracker
     k4abt_tracker_configuration_t trackerConfig = K4ABT_TRACKER_CONFIG_DEFAULT;
-    trackerConfig.cpu_only_mode = false;
+    trackerConfig.processing_mode = K4ABT_TRACKER_PROCESSING_MODE_GPU;
     if (k4abt_tracker_create(&sensorCalibration, trackerConfig, &m_tracker) != K4A_RESULT_SUCCEEDED) {
         if (m_errorCallback != nullptr) {
             m_errorCallback("Failed to create K4A body tracker");
