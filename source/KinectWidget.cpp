@@ -222,15 +222,12 @@ void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colo
             // Get joint positions
             mat4 scale = glm::scale(mat4(1.0f), vec3(0.034f));
             mat4 spaceConvert(1.0f);
-            if (m_colourImage) {
-                // Need to convert from depth space to colour space
-                // TODO: These values are currently hardcoded from k4a calibration, they should really be passed from
-                // k4a in case any settings are changed Note: These values obtained from
-                // calibration->extrinsics[source_camera(0)][target_camera(1)]
-                spaceConvert = mat4(vec4(0.999987721f, 0.00121299317f, 0.00480594439f, 0.0f),
-                    vec4(-0.000721473712f, 0.994887710f, -0.100984767f, 0.0f),
-                    vec4(-0.00490386877f, 0.100980058f, 0.994876385f, 0.0f),
-                    vec4(-32.1208534f * 0.001f, -2.06779432f * 0.001f, 3.97831678f * 0.001f, 1.0f));
+            if (m_depthImage) {
+                spaceConvert = m_calibration.m_jointToDepth;
+            } else if (m_colourImage) {
+                spaceConvert = m_calibration.m_jointToColour;
+            } else if (m_irImage) {
+                spaceConvert = m_calibration.m_jointToIR;
             }
             auto pointer = joints.m_joints;
             for (uint32_t i = 0; i < joints.m_length; ++i, ++pointer) {

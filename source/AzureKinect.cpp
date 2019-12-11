@@ -123,19 +123,20 @@ bool AzureKinect::initCamera() noexcept
     m_calibration.m_irBC = m_calibration.m_depthBC;
 
     m_calibration.m_jointToDepth = glm::mat4(1.0f);
-    m_calibration.m_jointToColour =
-        glm::mat4(sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[0],
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[1],
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[2], 0.0f,
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[3],
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[4],
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[5], 0.0f,
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[6],
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[7],
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[8], 0.0f,
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].translation[0],
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].translation[1],
-            sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].translation[2], 1.0f);
+    m_calibration.m_jointToColour = glm::mat4(
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[0],
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[3],
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[6], 0.0f,
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[1],
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[4],
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[7], 0.0f,
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[2],
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[5],
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].rotation[8], 0.0f,
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].translation[0] * 0.001f,
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].translation[1] * 0.001f,
+        sensorCalibration.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR].translation[2] * 0.001f,
+        1.0f);
     m_calibration.m_jointToIR = glm::mat4(1.0f);
 
     // K4A depth camera FOV is as follows:
@@ -179,8 +180,6 @@ bool AzureKinect::initCamera() noexcept
         m_calibration.m_depthDimensions = {640.0f, 576.0f};
     } else if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_WFOV_2X2BINNED) {
         m_calibration.m_depthDimensions = {512.0f, 512.0f};
-    } else if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_WFOV_UNBINNED) {
-        m_calibration.m_depthDimensions = {1024.0f, 1024.0f};
     } else {
         m_calibration.m_depthDimensions = {1024.0f, 1024.0f};
     }
