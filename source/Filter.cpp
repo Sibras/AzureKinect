@@ -128,12 +128,9 @@ bool Filter::init(const uint32_t width, const uint32_t height, const AVRational 
         return false;
     }
 
-    try {
-        av_opt_set(scaleContext, "w", to_string(width).c_str(), AV_OPT_SEARCH_CHILDREN);
-        av_opt_set(scaleContext, "h", to_string(height).c_str(), AV_OPT_SEARCH_CHILDREN);
-    } catch (...) {
-        return false;
-    }
+    av_opt_set(scaleContext, "w", to_string(width).c_str(), AV_OPT_SEARCH_CHILDREN);
+    av_opt_set(scaleContext, "h", to_string(height).c_str(), AV_OPT_SEARCH_CHILDREN);
+
     // av_opt_set(scaleContext, "out_color_matrix", "bt709", AV_OPT_SEARCH_CHILDREN);
     av_opt_set(scaleContext, "out_range", "full", AV_OPT_SEARCH_CHILDREN);
 

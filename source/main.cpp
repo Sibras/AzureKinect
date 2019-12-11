@@ -20,8 +20,27 @@
 
 using namespace Ak;
 
+namespace Ak {
+constexpr auto logFile = "LogFile.log";
+
+void logHandler(const std::string& message)
+{
+    static std::mutex s_logLock;
+    std::lock_guard<std::mutex> lock(s_logLock);
+
+    std::ofstream log(logFile, std::ios::app);
+    if (log.is_open()) {
+        log << message << std::endl;
+        log.close();
+    }
+}
+} // namespace Ak
+
 int main(int argc, char* argv[])
 {
+    // Clear previous log
+    std::remove(logFile);
+
     QApplication a(argc, argv);
 
     // Set global OpenGL settings
@@ -37,6 +56,7 @@ int main(int argc, char* argv[])
 #endif
     QSurfaceFormat::setDefaultFormat(format);
 
+    // Show window
     AzureKinectWindow w;
     w.show();
     return a.exec();

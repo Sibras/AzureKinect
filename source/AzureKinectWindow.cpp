@@ -17,6 +17,7 @@
 #include "AzureKinectWindow.h"
 
 #include <QMessageBox>
+#include <QTextStream>
 #include <QThread>
 #include <QTimer>
 #include <QtEvents>
@@ -24,6 +25,32 @@
 using namespace std;
 
 namespace Ak {
+extern void logHandler(const std::string& message);
+
+static void customMessageHandler(const QtMsgType type, const QMessageLogContext& context, const QString& msg)
+{
+    Q_UNUSED(context);
+
+    QString txt;
+    switch (type) {
+        case QtDebugMsg:
+            txt += QString("Debug: %1").arg(msg);
+            break;
+        case QtWarningMsg:
+            txt += QString("Warning: %1").arg(msg);
+            break;
+        case QtCriticalMsg:
+            txt += QString("Critical: %1").arg(msg);
+            break;
+        case QtFatalMsg:
+            txt += QString("Fatal: %1").arg(msg);
+            break;
+        default:
+            txt += QString("Info: %1").arg(msg);
+    }
+    logHandler(txt.toStdString());
+}
+
 // Allow data types to be passed by qt connect function
 Q_DECLARE_METATYPE(KinectImage);
 Q_DECLARE_METATYPE(KinectJoints);
@@ -31,6 +58,10 @@ Q_DECLARE_METATYPE(KinectJoints);
 AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     : QMainWindow(parent)
 {
+    // Install custom message callback
+    qInstallMessageHandler(customMessageHandler);
+
+    // Load UI
     m_ui.setupUi(this);
 
     // Ensure only 3 digit integers can be entered for PID
@@ -65,6 +96,8 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     connect(m_ui.actionIR_Image_2, &QAction::triggered, this, &AzureKinectWindow::recordIRImageSlot);
     connect(m_ui.actionBody_Skeleton_2, &QAction::triggered, this, &AzureKinectWindow::recordBodySkeletonSlot);
 
+    m_ui.statusBar->showMessage(tr("Waiting for camera to start..."));
+
     // Start device (uses timer to start once UI is fully loaded so we can receive messages)
     QTimer::singleShot(0, this, [=]() {
         m_recorder.init(bind(&AzureKinectWindow::errorCallback, this, placeholders::_1));
@@ -96,6 +129,8 @@ void AzureKinectWindow::startSlot() noexcept
         m_ui.actionColour_Image_2->setEnabled(false);
         m_ui.actionIR_Image_2->setEnabled(false);
         m_ui.actionBody_Skeleton_2->setEnabled(false);
+
+        m_ui.statusBar->showMessage(tr("Recording started..."));
     } else {
         m_recorder.stop();
         m_started = false;
@@ -104,6 +139,8 @@ void AzureKinectWindow::startSlot() noexcept
         m_ui.actionColour_Image_2->setEnabled(true);
         m_ui.actionIR_Image_2->setEnabled(true);
         m_ui.actionBody_Skeleton_2->setEnabled(true);
+
+        m_ui.statusBar->showMessage(tr("Recording stopped"));
     }
 }
 
@@ -118,12 +155,15 @@ void AzureKinectWindow::exitSlot() noexcept
 
 void AzureKinectWindow::errorSlot(const QString& message) noexcept
 {
+    logHandler(message.toStdString());
+    m_ui.statusBar->showMessage(tr("Error: ") + message);
     QMessageBox::critical(this, tr("AzureKinect"), message);
     exitSlot();
 }
 
 void AzureKinectWindow::readySlot() noexcept
 {
+    m_ui.statusBar->showMessage(tr("Camera is now ready for capture"));
     m_ready = true;
     updateRecordOptions(); // This will enable the start button if possible
 }

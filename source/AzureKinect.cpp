@@ -22,6 +22,13 @@
 using namespace std;
 
 namespace Ak {
+extern void logHandler(const std::string& message);
+
+static void azureCallback(void*, k4a_log_level_t, const char*, const int, const char* message)
+{
+    logHandler(message);
+}
+
 AzureKinect::~AzureKinect()
 {
     shutdown();
@@ -33,6 +40,14 @@ bool AzureKinect::init(errorCallback error, readyCallback ready, dataCallback da
     // Store callbacks
     m_errorCallback = move(error);
     m_dataCallback = move(data);
+
+    // Set k4a debug callback
+    k4a_set_debug_message_handler(nullptr, nullptr, K4A_LOG_LEVEL_INFO);
+#ifdef _DEBUG
+    k4a_set_debug_message_handler(azureCallback, nullptr, K4A_LOG_LEVEL_INFO);
+#else
+    k4a_set_debug_message_handler(azureCallback, nullptr, K4A_LOG_LEVEL_ERROR);
+#endif
 
     // Start capture thread running
     m_captureThread = thread(&AzureKinect::run, this, move(ready));

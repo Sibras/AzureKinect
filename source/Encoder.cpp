@@ -18,8 +18,6 @@
 
 #include "Filter.h"
 
-#include <iostream>
-
 extern "C" {
 #include <libavfilter/avfilter.h>
 #include <libavformat/avformat.h>
@@ -30,6 +28,8 @@ extern "C" {
 using namespace std;
 
 namespace Ak {
+extern void logHandler(const std::string& message);
+
 std::string getFfmpegErrorString(const int errorCode) noexcept
 {
     char buffer[AV_ERROR_MAX_STRING_SIZE];
@@ -38,14 +38,12 @@ std::string getFfmpegErrorString(const int errorCode) noexcept
 }
 
 static int s_prefix = 1;
-void logCallback(void* avcl, const int level, const char* fmt, const va_list vl)
+
+void logCallback(void* avclass, const int level, const char* format, const va_list vl)
 {
-    if (level <= AV_LOG_WARNING) {
-        char buffer[1024];
-        av_log_format_line(avcl, level, fmt, vl, buffer, 1024, &s_prefix);
-        // TODO: message out the information
-        cout << buffer << endl;
-    }
+    char buffer[1024];
+    av_log_format_line(avclass, level, format, vl, buffer, 1024, &s_prefix);
+    logHandler(buffer);
 }
 
 OutputFormatContextPtr::OutputFormatContextPtr(AVFormatContext* formatContext) noexcept
@@ -98,8 +96,8 @@ bool Encoder::init(const string& filename, const uint32_t width, const uint32_t 
     m_timebase = {1, static_cast<int32_t>(fps)};
 
     // Set the ffmpeg callback for receiving log messages
-#if _DEBUG
-    av_log_set_level(AV_LOG_WARNING);
+#ifdef _DEBUG
+    av_log_set_level(AV_LOG_INFO);
 #else
     av_log_set_level(AV_LOG_ERROR);
 #endif

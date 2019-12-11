@@ -27,9 +27,12 @@ using namespace std;
 
 namespace Ak {
 #if _DEBUG
+extern void logHandler(const std::string& message);
+
 static QString s_severity[] = {"High", "Medium", "Low", "Notification"};
 static QString s_type[] = {"Error", "Deprecated", "Undefined", "Portability", "Performance", "Other"};
 static QString s_source[] = {"OpenGL", "OS", "GLSL Compiler", "3rd Party", "Application", "Other"};
+
 void APIENTRY debugCallback(const uint32_t source, const uint32_t type, uint32_t, const uint32_t severity, int32_t,
     const char* message, void* userParam)
 {
@@ -100,10 +103,12 @@ void APIENTRY debugCallback(const uint32_t source, const uint32_t type, uint32_t
     }
 
     // Output to message callback
+    const auto mess = QObject::tr("OpenGL Debug: Severity=") + s_severity[sevID] + QObject::tr(", Type=") +
+        s_type[typeID] + QObject::tr(", Source=") + s_source[sourceID] + QObject::tr(" - ") + message;
     if (severity == GL_DEBUG_SEVERITY_HIGH) {
-        static_cast<KinectWidget*>(userParam)->errorSignal(QObject::tr("OpenGL Debug: Severity=") + s_severity[sevID] +
-            QObject::tr(", Type=") + s_type[typeID] + QObject::tr(", Source=") + s_source[sourceID] +
-            QObject::tr(" - ") + message);
+        static_cast<KinectWidget*>(userParam)->errorSignal(mess);
+    } else {
+        logHandler(mess.toStdString());
     }
 }
 #endif
@@ -380,8 +385,8 @@ void KinectWidget::initializeGL() noexcept
     // Set up the type of debug information we want to receive
     uint32_t uiUnusedIDs = 0;
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, &uiUnusedIDs, GL_TRUE); // Enable all
-    glDebugMessageControl(
-        GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE); // Disable notifications
+    /*glDebugMessageControl(
+        GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE); // Disable notifications*/
 #endif
 
     // Connect cleanup handler
