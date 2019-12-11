@@ -89,7 +89,7 @@ const AVFrame* FramePtr::operator->() const noexcept
 }
 
 bool Encoder::init(const string& filename, const uint32_t width, const uint32_t height, const uint32_t fps,
-    const int32_t format, const uint32_t numThreads, errorCallback error) noexcept
+    const int32_t format, float scale, const uint32_t numThreads, errorCallback error) noexcept
 {
     m_errorCallback = move(error);
     m_format = format;
@@ -104,7 +104,7 @@ bool Encoder::init(const string& filename, const uint32_t width, const uint32_t 
     av_log_set_callback(logCallback);
 
     // Initialise the filter for pixel conversion
-    if (!m_filter.init(width, height, m_timebase, format, m_errorCallback)) {
+    if (!m_filter.init(width, height, m_timebase, format, scale, m_errorCallback)) {
         return false;
     }
 

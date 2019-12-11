@@ -227,6 +227,25 @@ bool AzureKinect::initCamera() noexcept
         m_calibration.m_fps = 30;
     }
 
+    //  K4A_DEPTH_MODE_NFOV_2X2BINNED = 500 -> 5800
+    //  K4A_DEPTH_MODE_NFOV_UNBINNED = 500 -> 4000
+    //  K4A_DEPTH_MODE_WFOV_2X2BINNED = 250 -> 3000
+    //  K4A_DEPTH_MODE_WFOV_UNBINNED = 250 -> 2500
+    //  K4A_DEPTH_MODE_PASSIVE_IR = 0 -> 1000
+    if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_NFOV_2X2BINNED) {
+        m_calibration.m_depthRange = {500, 5800};
+    } else if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_NFOV_UNBINNED) {
+        m_calibration.m_depthRange = {500, 4000};
+    } else if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_WFOV_2X2BINNED) {
+        m_calibration.m_depthRange = {250, 3000};
+    } else if (sensorCalibration.depth_mode == K4A_DEPTH_MODE_WFOV_UNBINNED) {
+        m_calibration.m_depthRange = {250, 2500};
+    } else {
+        m_calibration.m_depthRange = {0, 1000};
+    }
+
+    m_calibration.m_irRange = {0, 1000};
+
     return true;
 }
 

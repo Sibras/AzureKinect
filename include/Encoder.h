@@ -98,11 +98,12 @@ public:
      * @param height     The input height.
      * @param fps        The input FPS.
      * @param format     The input frame pixel format.
+     * @param scale      The scale that needs to be applied to input pixels.
      * @param numThreads Number of threads to use.
      * @param error      (Optional) The callback used to signal errors.
      * @returns True if it succeeds, false if it fails.
      */
-    bool init(const std::string& filename, uint32_t width, uint32_t height, uint32_t fps, int32_t format,
+    bool init(const std::string& filename, uint32_t width, uint32_t height, uint32_t fps, int32_t format, float scale,
         uint32_t numThreads, errorCallback error = nullptr) noexcept;
 
     /**

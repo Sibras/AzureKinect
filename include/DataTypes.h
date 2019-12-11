@@ -205,5 +205,7 @@ public:
     glm::ivec2 m_colourDimensions;
     glm::ivec2 m_irDimensions;
     uint32_t m_fps;
+    glm::ivec2 m_depthRange;
+    glm::ivec2 m_irRange;
 };
 } // namespace Ak

@@ -263,8 +263,10 @@ bool KinectRecord::initOutput() noexcept
         numThreads = std::min(numThreads, 8U);
 
         if (m_depthImage) {
+            const float scale =
+                65536.0f / static_cast<float>(m_calibration.m_depthRange.y - m_calibration.m_depthRange.x);
             if (!m_encoders[0].init(videoFile + "_depth.mp4", m_calibration.m_depthDimensions.x,
-                    m_calibration.m_depthDimensions.y, m_calibration.m_fps, AV_PIX_FMT_GRAY16LE, numThreads,
+                    m_calibration.m_depthDimensions.y, m_calibration.m_fps, AV_PIX_FMT_GRAY16LE, scale, numThreads,
                     m_errorCallback)) {
                 cleanupOutput();
                 return false;
@@ -272,15 +274,16 @@ bool KinectRecord::initOutput() noexcept
         }
         if (m_colourImage) {
             if (!m_encoders[1].init(videoFile + "_colour.mp4", m_calibration.m_colourDimensions.x,
-                    m_calibration.m_colourDimensions.y, m_calibration.m_fps, AV_PIX_FMT_BGRA, numThreads,
+                    m_calibration.m_colourDimensions.y, m_calibration.m_fps, AV_PIX_FMT_BGRA, 1.0f, numThreads,
                     m_errorCallback)) {
                 cleanupOutput();
                 return false;
             }
         }
         if (m_irImage) {
+            const float scale = 65536.0f / static_cast<float>(m_calibration.m_irRange.y - m_calibration.m_irRange.x);
             if (!m_encoders[2].init(videoFile + "_ir.mp4", m_calibration.m_irDimensions.x,
-                    m_calibration.m_irDimensions.y, m_calibration.m_fps, AV_PIX_FMT_GRAY16LE, numThreads,
+                    m_calibration.m_irDimensions.y, m_calibration.m_fps, AV_PIX_FMT_GRAY16LE, scale, numThreads,
                     m_errorCallback)) {
                 cleanupOutput();
                 return false;

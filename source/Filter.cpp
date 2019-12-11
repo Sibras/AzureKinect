@@ -49,7 +49,7 @@ AVFilterGraph* Filter::FilterGraphPtr::operator->() const noexcept
     return m_filterGraph.get();
 }
 
-bool Filter::init(const uint32_t width, const uint32_t height, const AVRational fps, const int32_t format,
+bool Filter::init(const uint32_t width, const uint32_t height, const AVRational fps, const int32_t format, float scale,
     errorCallback error) noexcept
 {
     m_errorCallback = move(error);
@@ -113,36 +113,61 @@ bool Filter::init(const uint32_t width, const uint32_t height, const AVRational 
     }
 
     AVFilterContext* nextFilter = bufferInContext;
-    const auto scaleFilter = avfilter_get_by_name("scale");
-    if (scaleFilter == nullptr) {
+    const auto mirrorFilter = avfilter_get_by_name("hflip");
+    if (mirrorFilter == nullptr) {
         if (m_errorCallback != nullptr) {
-            m_errorCallback("Unable to create scale filter"s);
+            m_errorCallback("Unable to create hflip filter"s);
         }
         return false;
     }
-    const auto scaleContext = avfilter_graph_alloc_filter(tempGraph.get(), scaleFilter, "scale");
-    if (scaleContext == nullptr) {
+    const auto mirrorContext = avfilter_graph_alloc_filter(tempGraph.get(), mirrorFilter, "hflip");
+    if (mirrorContext == nullptr) {
         if (m_errorCallback != nullptr) {
-            m_errorCallback("Unable to create scale filter context"s);
+            m_errorCallback("Unable to create hflip filter context"s);
         }
         return false;
     }
-
-    av_opt_set(scaleContext, "w", to_string(width).c_str(), AV_OPT_SEARCH_CHILDREN);
-    av_opt_set(scaleContext, "h", to_string(height).c_str(), AV_OPT_SEARCH_CHILDREN);
-
-    // av_opt_set(scaleContext, "out_color_matrix", "bt709", AV_OPT_SEARCH_CHILDREN);
-    av_opt_set(scaleContext, "out_range", "full", AV_OPT_SEARCH_CHILDREN);
 
     // Link the filter into chain
-    ret = avfilter_link(nextFilter, 0, scaleContext, 0);
+    ret = avfilter_link(nextFilter, 0, mirrorContext, 0);
     if (ret < 0) {
         if (m_errorCallback != nullptr) {
-            m_errorCallback("Unable to link scale filter"s);
+            m_errorCallback("Unable to link hflip filter"s);
         }
         return false;
     }
-    nextFilter = scaleContext;
+    nextFilter = mirrorContext;
+
+    if (format == AV_PIX_FMT_GRAY16LE) {
+        const auto brightFilter = avfilter_get_by_name("colorlevels");
+        if (brightFilter == nullptr) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Unable to create colorlevels filter"s);
+            }
+            return false;
+        }
+        const auto brightContext = avfilter_graph_alloc_filter(tempGraph.get(), brightFilter, "colorlevels");
+        if (brightContext == nullptr) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Unable to create colorlevels filter context"s);
+            }
+            return false;
+        }
+        const auto scaleString = to_string(1.0f / scale);
+        av_opt_set(brightContext, "rimax", scaleString.c_str(), AV_OPT_SEARCH_CHILDREN);
+        av_opt_set(brightContext, "gimax", scaleString.c_str(), AV_OPT_SEARCH_CHILDREN);
+        av_opt_set(brightContext, "bimax", scaleString.c_str(), AV_OPT_SEARCH_CHILDREN);
+
+        // Link the filter into chain
+        ret = avfilter_link(nextFilter, 0, brightContext, 0);
+        if (ret < 0) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Unable to link colorlevels filter"s);
+            }
+            return false;
+        }
+        nextFilter = brightContext;
+    }
 
     // Link final filter sequence
     ret = avfilter_link(nextFilter, 0, bufferOutContext, 0);

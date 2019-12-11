@@ -68,9 +68,12 @@ public:
      * @param height The input frame height.
      * @param fps    The input frame FPS.
      * @param format The input frame pixel format to use.
+     * @param scale  The scale that needs to be applied to input pixels.
      * @param error  (Optional) The callback used to signal errors.
+     * @returns True if it succeeds, false if it fails.
      */
-    bool init(uint32_t width, uint32_t height, AVRational fps, int32_t format, errorCallback error = nullptr) noexcept;
+    bool init(uint32_t width, uint32_t height, AVRational fps, int32_t format, float scale,
+        errorCallback error = nullptr) noexcept;
 
     /**
      * Sends a frame to be filtered
