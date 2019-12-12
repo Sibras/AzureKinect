@@ -20,6 +20,7 @@
 #include <string>
 
 extern "C" {
+#include <libavutil/pixfmt.h>
 #include <libavutil/rational.h>
 }
 
@@ -88,6 +89,31 @@ public:
      * @returns True if it succeeds, false if it fails.
      */
     bool receiveFrame(FramePtr& frame) const noexcept;
+
+    /**
+     * Gets the width of output frames.
+     * @returns The width.
+     */
+    [[nodiscard]] uint32_t getWidth() const noexcept;
+
+    /**
+     * Gets the height of output frames.
+     * @returns The height.
+     */
+    [[nodiscard]] uint32_t getHeight() const noexcept;
+
+    /**
+     * Gets pixel format of output frames.
+     * @returns The pixel format.
+     */
+    [[nodiscard]] AVPixelFormat getPixelFormat() const noexcept;
+
+    /**
+     * Gets the frame rate (fps) of the output frames.
+     * @note This will not be fully accurate when dealing with VFR video streams.
+     * @returns The frame rate in frames per second.
+     */
+    [[nodiscard]] AVRational getFrameRate() const noexcept;
 
 private:
     FilterGraphPtr m_filterGraph;        /**< The filter graph. */

@@ -70,7 +70,7 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
 
     // Reserve initial memory
     for (auto& i : m_dataBuffer) {
-        i.m_image.reserve(1280 * 720 * 4);
+        i.m_image.reserve(3840 * 2160 * 4);
         i.m_joints.reserve(40);
     }
 

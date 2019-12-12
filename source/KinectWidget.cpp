@@ -421,47 +421,33 @@ void KinectWidget::initializeGL() noexcept
     // Create depth texture
     glGenTextures(1, &m_depthTexture);
     glBindTexture(GL_TEXTURE_2D, m_depthTexture);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, 640, 576);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    std::vector<uint8_t> initialBlank(1280 * 720 * 10, 0);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 640, 576, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT,
-        reinterpret_cast<const GLvoid*>(initialBlank.data()));
 
     // Create colour texture
     glGenTextures(1, &m_colourTexture);
     glBindTexture(GL_TEXTURE_2D, m_colourTexture);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 1280, 720);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1280, 720, GL_BGRA, GL_UNSIGNED_BYTE,
-        reinterpret_cast<const GLvoid*>(initialBlank.data()));
 
     // Create IR texture
     glGenTextures(1, &m_irTexture);
     glBindTexture(GL_TEXTURE_2D, m_irTexture);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, 640, 576);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 640, 576, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT,
-        reinterpret_cast<const GLvoid*>(initialBlank.data()));
 
     // Create shadow texture
     glGenTextures(1, &m_shadowTexture);
     glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, 640, 576);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 640, 576, GL_RED, GL_UNSIGNED_BYTE,
-        reinterpret_cast<const GLvoid*>(initialBlank.data()));
 
     // Create sphere object
     glGenVertexArrays(1, &m_sphereVAO);

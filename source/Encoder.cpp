@@ -89,7 +89,7 @@ const AVFrame* FramePtr::operator->() const noexcept
 }
 
 bool Encoder::init(const string& filename, const uint32_t width, const uint32_t height, const uint32_t fps,
-    const int32_t format, float scale, const uint32_t numThreads, errorCallback error) noexcept
+    const int32_t format, const float scale, const uint32_t numThreads, errorCallback error) noexcept
 {
     m_errorCallback = move(error);
     m_format = format;
@@ -104,7 +104,7 @@ bool Encoder::init(const string& filename, const uint32_t width, const uint32_t 
     av_log_set_callback(logCallback);
 
     // Initialise the filter for pixel conversion
-    if (!m_filter.init(width, height, m_timebase, format, scale, m_errorCallback)) {
+    if (!m_filter.init(width, height, av_inv_q(m_timebase), format, scale, m_errorCallback)) {
         return false;
     }
 
@@ -142,11 +142,11 @@ bool Encoder::init(const string& filename, const uint32_t width, const uint32_t 
     }
 
     // Setup encoding parameters
-    tempCodec->height = height;
-    tempCodec->width = width;
+    tempCodec->height = m_filter.getHeight();
+    tempCodec->width = m_filter.getWidth();
     tempCodec->sample_aspect_ratio = {1, 1};
-    tempCodec->pix_fmt = AV_PIX_FMT_YUV420P;
-    tempCodec->framerate = {static_cast<int32_t>(fps), 1};
+    tempCodec->pix_fmt = m_filter.getPixelFormat();
+    tempCodec->framerate = m_filter.getFrameRate();
     tempCodec->time_base = av_inv_q(tempCodec->framerate);
     av_opt_set_int(tempCodec.get(), "refcounted_frames", 1, 0);
 

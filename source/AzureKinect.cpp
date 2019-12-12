@@ -76,8 +76,8 @@ bool AzureKinect::initCamera() noexcept
     // Start camera. Make sure depth camera is enabled.
     k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
     deviceConfig.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
-    deviceConfig.color_resolution = K4A_COLOR_RESOLUTION_720P;
-    deviceConfig.camera_fps = K4A_FRAMES_PER_SECOND_15;
+    deviceConfig.color_resolution = K4A_COLOR_RESOLUTION_2160P;
+    deviceConfig.camera_fps = K4A_FRAMES_PER_SECOND_30;
     deviceConfig.color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
     deviceConfig.synchronized_images_only = true;
     if (k4a_device_start_cameras(m_device, &deviceConfig) != K4A_RESULT_SUCCEEDED) {
@@ -350,9 +350,9 @@ bool AzureKinect::run(const readyCallback& ready) noexcept
                 }
             } else {
                 // Reset the buffers to contain invalid data
-                bodyPixel.assign(static_cast<size_t>(k4a_image_get_width_pixels(depthImage)) *
-                        k4a_image_get_height_pixels(depthImage),
-                    0);
+                const auto depthWidth = k4a_image_get_width_pixels(depthImage);
+                const auto depthHeight = k4a_image_get_height_pixels(depthImage);
+                bodyPixel.assign(static_cast<size_t>(depthWidth) * depthHeight, 0);
                 bodyJoint.resize(0);
             }
 

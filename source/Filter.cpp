@@ -1,5 +1,4 @@
-﻿#pragma once
-/**
+﻿/**
  * Copyright Matthew Oliver
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +32,7 @@ extern "C" {
 using namespace std;
 
 namespace Ak {
-extern std::string getFfmpegErrorString(const int errorCode) noexcept;
+extern std::string getFfmpegErrorString(int errorCode) noexcept;
 
 Filter::FilterGraphPtr::FilterGraphPtr(AVFilterGraph* filterGraph) noexcept
     : m_filterGraph(filterGraph, [](AVFilterGraph* p) { avfilter_graph_free(&p); })
@@ -49,8 +48,8 @@ AVFilterGraph* Filter::FilterGraphPtr::operator->() const noexcept
     return m_filterGraph.get();
 }
 
-bool Filter::init(const uint32_t width, const uint32_t height, const AVRational fps, const int32_t format, float scale,
-    errorCallback error) noexcept
+bool Filter::init(const uint32_t width, const uint32_t height, const AVRational fps, const int32_t format,
+    const float scale, errorCallback error) noexcept
 {
     m_errorCallback = move(error);
 
@@ -167,6 +166,39 @@ bool Filter::init(const uint32_t width, const uint32_t height, const AVRational 
             return false;
         }
         nextFilter = brightContext;
+    } else {
+        const auto scaleFilter = avfilter_get_by_name("scale");
+        if (scaleFilter == nullptr) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Unable to create scale filter"s);
+            }
+            return false;
+        }
+        const auto scaleContext = avfilter_graph_alloc_filter(tempGraph.get(), scaleFilter, "colorlevels");
+        if (scaleContext == nullptr) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Unable to create scale filter context"s);
+            }
+            return false;
+        }
+
+        const float aspect = static_cast<float>(height) / static_cast<float>(width);
+        const auto heightScale = static_cast<uint32_t>(640.0f * aspect);
+        av_opt_set(scaleContext, "w", "640", AV_OPT_SEARCH_CHILDREN);
+        av_opt_set(scaleContext, "h", to_string(heightScale).c_str(), AV_OPT_SEARCH_CHILDREN);
+
+        // av_opt_set(scaleContext, "out_color_matrix", "bt709", AV_OPT_SEARCH_CHILDREN);
+        av_opt_set(scaleContext, "out_range", "full", AV_OPT_SEARCH_CHILDREN);
+
+        // Link the filter into chain
+        ret = avfilter_link(nextFilter, 0, scaleContext, 0);
+        if (ret < 0) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Unable to link scale filter"s);
+            }
+            return false;
+        }
+        nextFilter = scaleContext;
     }
 
     // Link final filter sequence
@@ -221,5 +253,25 @@ bool Filter::receiveFrame(FramePtr& frame) const noexcept
         return false;
     }
     return true;
+}
+
+uint32_t Filter::getWidth() const noexcept
+{
+    return av_buffersink_get_w(m_sink);
+}
+
+uint32_t Filter::getHeight() const noexcept
+{
+    return av_buffersink_get_h(m_sink);
+}
+
+AVPixelFormat Filter::getPixelFormat() const noexcept
+{
+    return static_cast<AVPixelFormat>(av_buffersink_get_format(m_sink));
+}
+
+AVRational Filter::getFrameRate() const noexcept
+{
+    return av_buffersink_get_frame_rate(m_sink);
 }
 } // namespace Ak
