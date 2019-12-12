@@ -265,7 +265,7 @@ bool Encoder::initOutput(const string& filename, const uint32_t width, const uin
     // Setup the desired encoding options
     AVDictionary* opts = nullptr;
     av_dict_set(&opts, "crf", to_string(23).c_str(), 0);
-    av_dict_set(&opts, "preset", "ultrafast", 0);
+    av_dict_set(&opts, "preset", "medium", 0);
 
     if (numThreads != 0) {
         av_dict_set(&opts, "threads", to_string(numThreads).c_str(), 0);
