@@ -88,12 +88,19 @@ const AVFrame* FramePtr::operator->() const noexcept
     return m_frame.get();
 }
 
+Encoder::~Encoder()
+{
+    shutdown();
+    cleanupOutput();
+}
+
 bool Encoder::init(const string& filename, const uint32_t width, const uint32_t height, const uint32_t fps,
     const int32_t format, const float scale, const uint32_t numThreads, errorCallback error) noexcept
 {
     m_errorCallback = move(error);
     m_format = format;
     m_timebase = {1, static_cast<int32_t>(fps)};
+    m_shutdown = false;
 
     // Set the ffmpeg callback for receiving log messages
 #ifdef _DEBUG
@@ -103,6 +110,107 @@ bool Encoder::init(const string& filename, const uint32_t width, const uint32_t 
 #endif
     av_log_set_callback(logCallback);
 
+    // Initialise the output
+    if (!initOutput(filename, width, height, format, scale, numThreads)) {
+        return false;
+    }
+
+    // Start encode thread running
+    m_thread = thread(&Encoder::run, this);
+
+    return true;
+}
+
+bool Encoder::addFrame(uint8_t* data, const uint32_t width, const uint32_t height, const uint32_t stride) noexcept
+{
+    // Copy data into local
+    const uint32_t bufferMod = m_bufferIndex % m_dataBuffer.size();
+
+    // Create ffmpeg frame
+    FramePtr frame2(av_frame_alloc());
+    if (frame2.get() == nullptr) {
+        if (m_errorCallback != nullptr) {
+            m_errorCallback("Failed to allocate new host frame"s);
+        }
+        return false;
+    }
+    frame2.m_frame->format = m_format;
+    frame2.m_frame->height = height;
+    frame2.m_frame->width = width;
+    auto ret = av_frame_get_buffer(frame2.get(), 0);
+    if (ret < 0) {
+        if (m_errorCallback != nullptr) {
+            m_errorCallback("Failed allocating new frame storage, "s += getFfmpegErrorString(ret));
+        }
+        return false;
+    }
+    const uint32_t pixSize = m_format == AV_PIX_FMT_BGRA ? 4 : 2; // TODO: Use ffmpeg internal functions for this
+    uint8_t* srcData[4];
+    int32_t srcLine[4];
+    // Determine input buffer alignment
+    int32_t align = 1;
+    for (; align <= static_cast<int32_t>(av_cpu_max_align()); align += align) {
+        if (FFALIGN(width * pixSize, align) == stride) {
+            break;
+        }
+    }
+
+    // Copy data into new frame
+    ret = av_image_fill_arrays(srcData, srcLine, data, static_cast<AVPixelFormat>(frame2.m_frame->format),
+        frame2.m_frame->width, frame2.m_frame->height, align);
+    if (ret < 0) {
+        if (m_errorCallback != nullptr) {
+            m_errorCallback("Failed to copy new frame, "s += getFfmpegErrorString(ret));
+        }
+        return false;
+    }
+
+    const uint8_t* srcData2[4];
+    memcpy(srcData2, srcData, sizeof(srcData2));
+    av_image_copy(frame2.m_frame->data, frame2.m_frame->linesize, srcData2, srcLine,
+        static_cast<AVPixelFormat>(frame2.m_frame->format), frame2.m_frame->width, frame2.m_frame->height);
+
+    // Fill in frame number
+    frame2.m_frame->best_effort_timestamp = m_frameNumber++;
+    frame2.m_frame->display_picture_number = static_cast<int32_t>(frame2.m_frame->best_effort_timestamp);
+    frame2.m_frame->pkt_dts = frame2.m_frame->best_effort_timestamp;
+    frame2.m_frame->pts = frame2.m_frame->best_effort_timestamp;
+    frame2.m_frame->sample_aspect_ratio = {1, 1};
+
+    // Place frame on pending stack
+    m_dataBuffer[bufferMod] = move(frame2);
+    {
+        lock_guard<mutex> lock(m_lock);
+        ++m_bufferIndex;
+        ++m_remainingBuffers;
+        if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size()) - 1) {
+            // Error buffer overflow
+            m_errorCallback("Encode buffer has overflowed"s);
+        }
+    }
+    // Notify wakeup
+    m_condition.notify_one();
+
+    return true;
+}
+
+void Encoder::shutdown() noexcept
+{
+    {
+        lock_guard<mutex> lock(m_lock);
+        m_shutdown = true;
+    }
+    // Notify wakeup
+    m_condition.notify_one();
+    // Wait for thread to complete
+    if (m_thread.joinable()) {
+        m_thread.join();
+    }
+}
+
+bool Encoder::initOutput(const string& filename, const uint32_t width, const uint32_t height, const int32_t format,
+    const float scale, const uint32_t numThreads) noexcept
+{
     // Initialise the filter for pixel conversion
     if (!m_filter.init(width, height, av_inv_q(m_timebase), format, scale, m_errorCallback)) {
         return false;
@@ -216,73 +324,45 @@ bool Encoder::init(const string& filename, const uint32_t width, const uint32_t 
     return true;
 }
 
-bool Encoder::addFrame(uint8_t* data, const uint32_t width, const uint32_t height, const uint32_t stride) noexcept
+void Encoder::cleanupOutput() noexcept
 {
-    // Copy data into local
-    const uint32_t bufferMod = m_bufferIndex % m_dataBuffer.size();
+    // Flush any remaining frames
+    if (m_filter.m_filterGraph.m_filterGraph != nullptr) {
+        FramePtr temp(nullptr);
+        while (processFrame(temp)) {
+        }
+    }
 
-    // Create ffmpeg frame
-    FramePtr frame2(av_frame_alloc());
-    if (frame2.get() == nullptr) {
-        if (m_errorCallback != nullptr) {
-            m_errorCallback("Failed to allocate new host frame"s);
-        }
-        return false;
+    // Finalise the encoder
+    if (m_formatContext.m_formatContext != nullptr) {
+        const FramePtr temp2(nullptr);
+        (void)encodeFrame(temp2);
+        m_codecContext = CodecContextPtr(nullptr);
+        m_formatContext = OutputFormatContextPtr(nullptr);
     }
-    frame2.m_frame->format = m_format;
-    frame2.m_frame->height = height;
-    frame2.m_frame->width = width;
-    auto ret = av_frame_get_buffer(frame2.get(), 0);
-    if (ret < 0) {
-        if (m_errorCallback != nullptr) {
-            m_errorCallback("Failed allocating new frame storage, "s += getFfmpegErrorString(ret));
+}
+
+bool Encoder::run() noexcept
+{
+    while (true) {
+        // Wait until we have received valid data
+        {
+            unique_lock<mutex> lock(m_lock);
+            if (!m_shutdown) {
+                m_condition.wait(lock, [this] { return (m_remainingBuffers > 0) || m_shutdown; });
+            }
+            if (m_shutdown) {
+                break;
+            }
         }
-        return false;
-    }
-    const uint32_t pixSize = m_format == AV_PIX_FMT_BGRA ? 4 : 2; // TODO: Use ffmpeg internal functions for this
-    uint8_t* srcData[4];
-    int32_t srcLine[4];
-    // Determine input buffer alignment
-    int32_t align = 1;
-    for (; align <= static_cast<int32_t>(av_cpu_max_align()); align += align) {
-        if (FFALIGN(width * pixSize, align) == stride) {
+        // Process pending frames
+        if (!process()) {
             break;
         }
     }
+    // Cleanup
+    cleanupOutput();
 
-    // Copy data into new frame
-    ret = av_image_fill_arrays(srcData, srcLine, data, static_cast<AVPixelFormat>(frame2.m_frame->format),
-        frame2.m_frame->width, frame2.m_frame->height, align);
-    if (ret < 0) {
-        if (m_errorCallback != nullptr) {
-            m_errorCallback("Failed to copy new frame, "s += getFfmpegErrorString(ret));
-        }
-        return false;
-    }
-
-    const uint8_t* srcData2[4];
-    memcpy(srcData2, srcData, sizeof(srcData2));
-    av_image_copy(frame2.m_frame->data, frame2.m_frame->linesize, srcData2, srcLine,
-        static_cast<AVPixelFormat>(frame2.m_frame->format), frame2.m_frame->width, frame2.m_frame->height);
-
-    // Fill in frame number
-    frame2.m_frame->best_effort_timestamp = m_frameNumber++;
-    frame2.m_frame->display_picture_number = static_cast<int32_t>(frame2.m_frame->best_effort_timestamp);
-    frame2.m_frame->pkt_dts = frame2.m_frame->best_effort_timestamp;
-    frame2.m_frame->pts = frame2.m_frame->best_effort_timestamp;
-    frame2.m_frame->sample_aspect_ratio = {1, 1};
-
-    // Place frame on pending stack
-    m_dataBuffer[bufferMod] = move(frame2);
-    {
-        lock_guard<mutex> lock(m_lock);
-        ++m_bufferIndex;
-        ++m_remainingBuffers;
-        if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size()) - 1) {
-            // Error buffer overflow
-            m_errorCallback("Encode buffer has overflowed"s);
-        }
-    }
     return true;
 }
 
@@ -301,29 +381,12 @@ bool Encoder::process() noexcept
         ++m_nextBufferIndex;
         m_nextBufferIndex = m_nextBufferIndex < m_dataBuffer.size() ? m_nextBufferIndex : 0;
 
+        // Process new frame
         if (!processFrame(frame)) {
             return false;
         }
     }
     return true;
-}
-
-void Encoder::shutdown() noexcept
-{
-    // Flush any remaining frames
-    if (m_filter.m_filterGraph.m_filterGraph != nullptr) {
-        FramePtr temp(nullptr);
-        while (processFrame(temp)) {
-        }
-    }
-
-    // Finalise the encoder
-    if (m_formatContext.m_formatContext != nullptr) {
-        const FramePtr temp2(nullptr);
-        (void)encodeFrame(temp2);
-        m_codecContext = CodecContextPtr(nullptr);
-        m_formatContext = OutputFormatContextPtr(nullptr);
-    }
 }
 
 bool Encoder::processFrame(FramePtr& frame) const noexcept

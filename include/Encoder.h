@@ -26,7 +26,6 @@
 
 extern "C" {
 #include <libavformat/avformat.h>
-#include <libavutil/pixfmt.h>
 #include <libavutil/rational.h>
 }
 
@@ -81,7 +80,7 @@ public:
 
     Encoder() = default;
 
-    ~Encoder() = default;
+    ~Encoder();
 
     Encoder(const Encoder& other) = delete;
 
@@ -116,16 +115,16 @@ public:
      */
     bool addFrame(uint8_t* data, uint32_t width, uint32_t height, uint32_t stride) noexcept;
 
-    /**
-     * Process any pending frames.
-     * @returns True if it succeeds, false if it fails.
+    /** Notify to shutdown.
+     * @note This function is synchronous and will block until thread has completed.
      */
-    bool process() noexcept;
-
     void shutdown() noexcept;
 
 private:
+    std::atomic_bool m_shutdown = false;
     std::mutex m_lock;
+    std::condition_variable m_condition;
+
     std::array<FramePtr, 16 /*must be power of 2*/> m_dataBuffer;
     std::atomic_uint32_t m_bufferIndex = 0;
     std::atomic_int32_t m_remainingBuffers = 0;
@@ -137,8 +136,43 @@ private:
     CodecContextPtr m_codecContext;
     AVRational m_timebase;
     Filter m_filter;
+    std::thread m_thread;
     errorCallback m_errorCallback = nullptr;
 
+    /**
+     * Initializes the output files and encoders/filters.
+     * @param filename   Filename of the file.
+     * @param width      The input width.
+     * @param height     The input height.
+     * @param format     The input frame pixel format.
+     * @param scale      The scale that needs to be applied to input pixels.
+     * @param numThreads Number of threads to use.
+     * @returns True if it succeeds, false if it fails.
+     */
+    [[nodiscard]] bool initOutput(const std::string& filename, uint32_t width, uint32_t height, int32_t format,
+        float scale, uint32_t numThreads) noexcept;
+
+    /** Cleanup output files opened during @initOutput. */
+    void cleanupOutput() noexcept;
+
+    /**
+     * Run image recording and processing.
+     * @note init() must be called before this function can be used.
+     * @returns True if it succeeds, false if it fails.
+     */
+    [[nodiscard]] bool run() noexcept;
+
+    /**
+     * Process any pending frames.
+     * @returns True if it succeeds, false if it fails.
+     */
+    bool process() noexcept;
+
+    /**
+     * Process the input frame.
+     * @param [in,out] frame The frame.
+     * @returns True if it succeeds, false if it fails.
+     */
     bool processFrame(FramePtr& frame) const noexcept;
 
     /**

@@ -111,7 +111,6 @@ private:
     std::array<DataBuffers, 16 /*must be power of 2*/> m_dataBuffer;
     std::atomic_uint32_t m_bufferIndex = 0;
     std::atomic_int32_t m_remainingBuffers = 0;
-    std::atomic_bool m_processEncode = false;
     uint32_t m_nextBufferIndex = 0;
     bool m_depthImage = true;
     bool m_colourImage = false;
@@ -124,18 +123,20 @@ private:
     errorCallback m_errorCallback = nullptr;
     KinectCalibration m_calibration;
 
+    /**
+     * Initializes the output files for recording.
+     * @returns True if it succeeds, false if it fails.
+     */
     [[nodiscard]] bool initOutput() noexcept;
 
+    /** Cleanup output files opened during @initOutput. */
     void cleanupOutput() noexcept;
 
     /**
-     * Run image recording and processing.
+     * Run data recording and processing.
      * @note init() must be called before this function can be used.
      * @returns True if it succeeds, false if it fails.
      */
     [[nodiscard]] bool run() noexcept;
-
-    /** Cleanup any resources created during init(). */
-    void cleanup() noexcept;
 };
 } // namespace Ak
