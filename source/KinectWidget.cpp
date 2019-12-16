@@ -237,7 +237,8 @@ void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colo
             auto pointer = joints.m_joints;
             for (uint32_t i = 0; i < joints.m_length; ++i, ++pointer) {
                 mat transform(spaceConvert * translate(mat4(1.0f), pointer->m_position.m_position * 0.001f) * scale);
-                m_sphereTransforms.emplace_back(DualMat4{transform, transpose(inverse(transform))});
+                m_sphereTransforms.emplace_back(
+                    SkeletonData{transform, transpose(inverse(transform)), pointer->m_confidence});
             }
 
             // Get bone positions
@@ -245,7 +246,7 @@ void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colo
                 const k4abt_joint_id_t joint1 = bone.first;
                 const k4abt_joint_id_t joint2 = bone.second;
 
-                if (joints.m_joints[joint1].m_confident && joints.m_joints[joint2].m_confident) {
+                if (joints.m_joints[joint1].m_confidence > 0.0f && joints.m_joints[joint2].m_confidence > 0.0f) {
                     const vec3 start = joints.m_joints[joint1].m_position.m_position * 0.001f;
                     const vec3 end = joints.m_joints[joint2].m_position.m_position * 0.001f;
 
@@ -278,10 +279,10 @@ void KinectWidget::dataSlot(const KinectImage depthImage, const KinectImage colo
                     mat4 scale2 = glm::scale(mat4(1.0f), vec3(0.014f, 0.014f, length));
 
                     mat4 transform = spaceConvert * model * scale2;
-                    m_cylinderTransforms.emplace_back(DualMat4{transform, transpose(inverse(transform))});
+                    m_cylinderTransforms.emplace_back(SkeletonData{transform, transpose(inverse(transform)),
+                        (joints.m_joints[joint1].m_confidence + joints.m_joints[joint2].m_confidence) * 0.5f});
                 }
             }
-            // TODO: Render differently based on confidence level
         }
     }
 
@@ -466,12 +467,16 @@ void KinectWidget::initializeGL() noexcept
     glGenBuffers(1, &m_sphereInstanceBO);
     glBindBuffer(GL_ARRAY_BUFFER, m_sphereInstanceBO);
     for (uint32_t i = 0; i < 8; i++) {
-        // Set up the vertex attribute
+        // Set up the vertex attributes for the 2 mat4's
         glVertexAttribPointer(
-            2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(DualMat4), reinterpret_cast<void*>(sizeof(vec4) * i));
+            2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(SkeletonData), reinterpret_cast<void*>(sizeof(vec4) * i));
         glEnableVertexAttribArray(2 + i);
         glVertexAttribDivisor(2 + i, 1);
     }
+    // Set up the vertex attribute for confidence
+    glVertexAttribPointer(10, 1, GL_FLOAT, GL_FALSE, sizeof(SkeletonData), reinterpret_cast<void*>(sizeof(vec4) * 8));
+    glEnableVertexAttribArray(10);
+    glVertexAttribDivisor(10, 1);
     m_sphereTransforms.reserve(32);
 
     // Create cylinder object
@@ -491,12 +496,16 @@ void KinectWidget::initializeGL() noexcept
     glGenBuffers(1, &m_cylinderInstanceBO);
     glBindBuffer(GL_ARRAY_BUFFER, m_cylinderInstanceBO);
     for (uint32_t i = 0; i < 8; i++) {
-        // Set up the vertex attribute
+        // Set up the vertex attributes for the 2 mat4's
         glVertexAttribPointer(
-            2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(DualMat4), reinterpret_cast<void*>(sizeof(vec4) * i));
+            2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(SkeletonData), reinterpret_cast<void*>(sizeof(vec4) * i));
         glEnableVertexAttribArray(2 + i);
         glVertexAttribDivisor(2 + i, 1);
     }
+    // Set up the vertex attribute for confidence
+    glVertexAttribPointer(10, 1, GL_FLOAT, GL_FALSE, sizeof(SkeletonData), reinterpret_cast<void*>(sizeof(vec4) * 8));
+    glEnableVertexAttribArray(10);
+    glVertexAttribDivisor(10, 1);
     glBindVertexArray(0);
     m_sphereTransforms.reserve(32);
 
@@ -668,7 +677,7 @@ void KinectWidget::paintGL() noexcept
         glUseProgram(m_skeletonProgram);
         if (m_sphereTransforms.size() > 0) {
             glBindBuffer(GL_ARRAY_BUFFER, m_sphereInstanceBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(DualMat4) * m_sphereTransforms.size(),
+            glBufferData(GL_ARRAY_BUFFER, sizeof(SkeletonData) * m_sphereTransforms.size(),
                 reinterpret_cast<const GLvoid*>(m_sphereTransforms.data()), GL_STATIC_DRAW);
             glBindVertexArray(m_sphereVAO);
             glDrawElementsInstanced(GL_TRIANGLES, m_sphereElements, GL_UNSIGNED_INT, nullptr,
@@ -676,7 +685,7 @@ void KinectWidget::paintGL() noexcept
         }
         if (m_cylinderTransforms.size() > 0) {
             glBindBuffer(GL_ARRAY_BUFFER, m_cylinderInstanceBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(DualMat4) * m_cylinderTransforms.size(),
+            glBufferData(GL_ARRAY_BUFFER, sizeof(SkeletonData) * m_cylinderTransforms.size(),
                 reinterpret_cast<const GLvoid*>(m_cylinderTransforms.data()), GL_STATIC_DRAW);
             glBindVertexArray(m_cylinderVAO);
             glDrawElementsInstanced(GL_TRIANGLES, m_cylinderElements, GL_UNSIGNED_INT, nullptr,

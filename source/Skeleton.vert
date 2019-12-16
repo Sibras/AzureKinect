@@ -21,9 +21,11 @@ layout(location = 0) in vec3 vertexPos;
 layout(location = 1) in vec3 normal;
 layout(location = 2) in mat4 transform;
 layout(location = 6) in mat4 transformIT;
+layout(location = 10) in float confidence;
 
 layout(location = 0) smooth out vec3 positionOut;
 layout(location = 1) smooth out vec3 normalOut;
+layout(location = 2) out float confidenceOut;
 
 void main()
 {
@@ -58,4 +60,7 @@ void main()
     vec4 transNormal = transformIT * vec4(normal, 0.0f);
     normalOut = transNormal.xyz;
     positionOut = position.xyz;
+
+    // Pass through confidence
+    confidenceOut = confidence;
 }

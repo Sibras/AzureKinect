@@ -34,28 +34,16 @@ Quaternion::Quaternion(const float x, const float y, const float z, const float 
     : m_rotation(x, y, z, w)
 {}
 
-Joint::Joint(const Position& position, const Quaternion& rotation, const bool confident)
+Joint::Joint(const Position& position, const Quaternion& rotation, const float confidence)
     : m_position(position)
     , m_rotation(rotation)
-    , m_confident(confident)
+    , m_confidence(confidence)
 {}
 
-Joint::Joint(const Position&& position, const Quaternion&& rotation, const bool&& confident)
+Joint::Joint(const Position&& position, const Quaternion&& rotation, const float&& confidence)
     : m_position(position)
     , m_rotation(rotation)
-    , m_confident(confident)
-{}
-
-Bone::Bone(const Position& joint1, const Position& joint2, const bool confident)
-    : m_joint1(joint1)
-    , m_joint2(joint2)
-    , m_confident(confident)
-{}
-
-Bone::Bone(const Position&& joint1, const Position&& joint2, const bool&& confident)
-    : m_joint1(joint1)
-    , m_joint2(joint2)
-    , m_confident(confident)
+    , m_confidence(confidence)
 {}
 
 KinectJoints::KinectJoints(Joint* joints, const uint32_t length)

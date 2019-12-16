@@ -84,9 +84,9 @@ class Joint
 public:
     Joint() = default;
 
-    Joint(const Position& position, const Quaternion& rotation, bool confident);
+    Joint(const Position& position, const Quaternion& rotation, float confidence);
 
-    Joint(const Position&& position, const Quaternion&& rotation, const bool&& confident);
+    Joint(const Position&& position, const Quaternion&& rotation, const float&& confidence);
 
     Joint(const Joint& other) = default;
 
@@ -98,29 +98,7 @@ public:
 
     Position m_position;
     Quaternion m_rotation;
-    bool m_confident;
-};
-
-class Bone
-{
-public:
-    Bone() = default;
-
-    Bone(const Position& joint1, const Position& joint2, bool confident);
-
-    Bone(const Position&& joint1, const Position&& joint2, const bool&& confident);
-
-    Bone(const Bone& other) = default;
-
-    Bone(Bone&& other) noexcept = default;
-
-    Bone& operator=(const Bone& other) = default;
-
-    Bone& operator=(Bone&& other) noexcept = default;
-
-    Position m_joint1;
-    Position m_joint2;
-    bool m_confident;
+    float m_confidence;
 };
 
 class KinectJoints

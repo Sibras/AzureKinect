@@ -343,7 +343,9 @@ bool AzureKinect::run(const readyCallback& ready) noexcept
                         bodyJoint.emplace_back(Position{jointPosition.xyz.x, jointPosition.xyz.y, jointPosition.xyz.z},
                             Quaternion{jointOrientation.wxyz.x, jointOrientation.wxyz.y, jointOrientation.wxyz.z,
                                 jointOrientation.wxyz.w},
-                            joint.confidence_level >= K4ABT_JOINT_CONFIDENCE_MEDIUM);
+                            static_cast<float>(joint.confidence_level) /
+                                static_cast<float>(
+                                    K4ABT_JOINT_CONFIDENCE_MEDIUM)); // Medium is currently the highest supported by SDK
                     } else {
                         bodyJoint.emplace_back(unknown, unknown2, false);
                     }
