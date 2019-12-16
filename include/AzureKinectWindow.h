@@ -94,7 +94,7 @@ private:
     bool m_viewBodyShadow = true;
     bool m_viewBodySkeleton = true;
     bool m_recordDepthImage = false;
-    bool m_recordColourImage = false;
+    bool m_recordColourImage = true;
     bool m_recordIRImage = false;
     bool m_recordBodySkeleton = true;
     bool m_started = false;
