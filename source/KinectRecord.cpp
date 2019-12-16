@@ -115,9 +115,7 @@ void KinectRecord::shutdown() noexcept
 void KinectRecord::dataCallback(const uint64_t time, const KinectImage& depthImage, const KinectImage& colourImage,
     const KinectImage& irImage, const KinectImage&, const KinectJoints& joints) noexcept
 {
-    unique_lock<mutex> lock(m_lock);
     if (m_run && m_run2) {
-        lock.unlock();
         bool validData = false;
         // Only write out data when running and setup has completed
 
@@ -158,15 +156,20 @@ void KinectRecord::dataCallback(const uint64_t time, const KinectImage& depthIma
             }
         }
         if (validData) {
-            lock.lock();
             ++m_bufferIndex;
-            ++m_remainingBuffers;
-            if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size()) - 1) {
+            if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size()) - 2) {
                 // Error buffer overflow
-                m_run = false;
+                {
+                    unique_lock<mutex> lock(m_lock);
+                    m_run = false;
+                }
                 m_errorCallback("Write buffer has overflowed"s);
+                return;
             }
-            lock.unlock();
+            {
+                unique_lock<mutex> lock(m_lock);
+                ++m_remainingBuffers;
+            }
         }
 
         // Notify wakeup
@@ -313,7 +316,6 @@ bool KinectRecord::run() noexcept
             if (m_shutdown) {
                 break;
             }
-            lock.unlock();
         }
         // State is currently set to run, initialise output
         if (!initOutput()) {
@@ -337,13 +339,10 @@ bool KinectRecord::run() noexcept
             if (m_bodySkeleton) {
                 // Write out to file
                 while (true) {
-                    {
-                        lock_guard<mutex> lock(m_lock);
-                        if (m_remainingBuffers == 0) {
-                            break;
-                        }
-                        --m_remainingBuffers;
+                    if (m_remainingBuffers == 0) {
+                        break;
                     }
+                    --m_remainingBuffers;
                     m_skeletonFile << "\r\n";
                     m_skeletonFile << m_dataBuffer[m_nextBufferIndex].m_timeStamp << ',';
                     for (auto& i : s_jointNames) {
@@ -369,10 +368,7 @@ bool KinectRecord::run() noexcept
             }
         }
         // Cleanup current run
-        {
-            unique_lock<mutex> lock(m_lock);
-            m_run2 = false;
-        }
+        m_run2 = false;
         cleanupOutput();
     }
 

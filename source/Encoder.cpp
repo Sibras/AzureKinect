@@ -179,14 +179,15 @@ bool Encoder::addFrame(uint8_t* data, const uint32_t width, const uint32_t heigh
 
     // Place frame on pending stack
     m_dataBuffer[bufferMod] = move(frame2);
+    if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size()) - 2) {
+        // Error buffer overflow
+        m_errorCallback("Encode buffer has overflowed"s);
+        return false;
+    }
+    ++m_bufferIndex;
     {
         lock_guard<mutex> lock(m_lock);
-        ++m_bufferIndex;
         ++m_remainingBuffers;
-        if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size()) - 1) {
-            // Error buffer overflow
-            m_errorCallback("Encode buffer has overflowed"s);
-        }
     }
     // Notify wakeup
     m_condition.notify_one();
@@ -370,13 +371,10 @@ bool Encoder::process() noexcept
 {
     // Get frame to be processed
     while (true) {
-        {
-            lock_guard<mutex> lock(m_lock);
-            if (m_remainingBuffers == 0) {
-                break;
-            }
-            --m_remainingBuffers;
+        if (m_remainingBuffers == 0) {
+            break;
         }
+        --m_remainingBuffers;
         FramePtr frame(move(m_dataBuffer[m_nextBufferIndex]));
         ++m_nextBufferIndex;
         m_nextBufferIndex = m_nextBufferIndex < m_dataBuffer.size() ? m_nextBufferIndex : 0;
