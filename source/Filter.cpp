@@ -49,7 +49,7 @@ AVFilterGraph* Filter::FilterGraphPtr::operator->() const noexcept
 }
 
 bool Filter::init(const uint32_t width, const uint32_t height, const AVRational fps, const int32_t format,
-    const float scale, errorCallback error) noexcept
+    const float scale, uint32_t numThreads, errorCallback error) noexcept
 {
     m_errorCallback = move(error);
 
@@ -64,6 +64,7 @@ bool Filter::init(const uint32_t width, const uint32_t height, const AVRational 
         }
         return false;
     }
+    tempGraph->nb_threads = numThreads;
 
     // Create the input and output buffers
     const auto bufferInContext = avfilter_graph_alloc_filter(tempGraph.get(), bufferIn, "src");
@@ -99,6 +100,7 @@ bool Filter::init(const uint32_t width, const uint32_t height, const AVRational 
         }
         return false;
     }
+
     // Set the output buffer parameters
     enum AVPixelFormat pixelFormats[] = {AV_PIX_FMT_YUV420P};
     ret = av_opt_set_bin(bufferOutContext, "pix_fmts", reinterpret_cast<const uint8_t*>(pixelFormats),
@@ -110,34 +112,41 @@ bool Filter::init(const uint32_t width, const uint32_t height, const AVRational 
         }
         return false;
     }
-
     AVFilterContext* nextFilter = bufferInContext;
-    const auto mirrorFilter = avfilter_get_by_name("hflip");
-    if (mirrorFilter == nullptr) {
-        if (m_errorCallback != nullptr) {
-            m_errorCallback("Unable to create hflip filter"s);
+    auto hflip = [&]() {
+        const auto mirrorFilter = avfilter_get_by_name("hflip");
+        if (mirrorFilter == nullptr) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Unable to create hflip filter"s);
+            }
+            return false;
         }
-        return false;
-    }
-    const auto mirrorContext = avfilter_graph_alloc_filter(tempGraph.get(), mirrorFilter, "hflip");
-    if (mirrorContext == nullptr) {
-        if (m_errorCallback != nullptr) {
-            m_errorCallback("Unable to create hflip filter context"s);
+        const auto mirrorContext = avfilter_graph_alloc_filter(tempGraph.get(), mirrorFilter, "hflip");
+        if (mirrorContext == nullptr) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Unable to create hflip filter context"s);
+            }
+            return false;
         }
-        return false;
-    }
 
-    // Link the filter into chain
-    ret = avfilter_link(nextFilter, 0, mirrorContext, 0);
-    if (ret < 0) {
-        if (m_errorCallback != nullptr) {
-            m_errorCallback("Unable to link hflip filter"s);
+        // Link the filter into chain
+        ret = avfilter_link(nextFilter, 0, mirrorContext, 0);
+        if (ret < 0) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Unable to link hflip filter"s);
+            }
+            return false;
         }
-        return false;
-    }
-    nextFilter = mirrorContext;
+        nextFilter = mirrorContext;
+        return true;
+    };
 
     if (format == AV_PIX_FMT_GRAY16LE) {
+        // Do hflip first as gray16 requires fewer operations than the format colorlevels uses
+        if (!hflip()) {
+            return false;
+        }
+
         const auto brightFilter = avfilter_get_by_name("colorlevels");
         if (brightFilter == nullptr) {
             if (m_errorCallback != nullptr) {
@@ -174,7 +183,7 @@ bool Filter::init(const uint32_t width, const uint32_t height, const AVRational 
             }
             return false;
         }
-        const auto scaleContext = avfilter_graph_alloc_filter(tempGraph.get(), scaleFilter, "colorlevels");
+        const auto scaleContext = avfilter_graph_alloc_filter(tempGraph.get(), scaleFilter, "scale");
         if (scaleContext == nullptr) {
             if (m_errorCallback != nullptr) {
                 m_errorCallback("Unable to create scale filter context"s);
@@ -199,6 +208,11 @@ bool Filter::init(const uint32_t width, const uint32_t height, const AVRational 
             return false;
         }
         nextFilter = scaleContext;
+
+        // Do hflip after resizing to reduce number of pixels worked on
+        if (!hflip()) {
+            return false;
+        }
     }
 
     // Link final filter sequence

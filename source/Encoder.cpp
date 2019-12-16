@@ -213,7 +213,7 @@ bool Encoder::initOutput(const string& filename, const uint32_t width, const uin
     const float scale, const uint32_t numThreads) noexcept
 {
     // Initialise the filter for pixel conversion
-    if (!m_filter.init(width, height, av_inv_q(m_timebase), format, scale, m_errorCallback)) {
+    if (!m_filter.init(width, height, av_inv_q(m_timebase), format, scale, numThreads, m_errorCallback)) {
         return false;
     }
 
@@ -266,7 +266,7 @@ bool Encoder::initOutput(const string& filename, const uint32_t width, const uin
     // Setup the desired encoding options
     AVDictionary* opts = nullptr;
     av_dict_set(&opts, "crf", to_string(23).c_str(), 0);
-    av_dict_set(&opts, "preset", "medium", 0);
+    av_dict_set(&opts, "preset", "veryfast", 0);
 
     if (numThreads != 0) {
         av_dict_set(&opts, "threads", to_string(numThreads).c_str(), 0);

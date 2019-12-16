@@ -65,15 +65,16 @@ public:
 
     /**
      * Initializes the filter.
-     * @param width  The input frame width.
-     * @param height The input frame height.
-     * @param fps    The input frame FPS.
-     * @param format The input frame pixel format to use.
-     * @param scale  The scale that needs to be applied to input pixels.
-     * @param error  (Optional) The callback used to signal errors.
+     * @param width      The input frame width.
+     * @param height     The input frame height.
+     * @param fps        The input frame FPS.
+     * @param format     The input frame pixel format to use.
+     * @param scale      The scale that needs to be applied to input pixels.
+     * @param numThreads Number of threads.
+     * @param error      (Optional) The callback used to signal errors.
      * @returns True if it succeeds, false if it fails.
      */
-    bool init(uint32_t width, uint32_t height, AVRational fps, int32_t format, float scale,
+    bool init(uint32_t width, uint32_t height, AVRational fps, int32_t format, float scale, uint32_t numThreads,
         errorCallback error = nullptr) noexcept;
 
     /**
