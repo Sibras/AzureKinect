@@ -49,7 +49,7 @@ AVFilterGraph* Filter::FilterGraphPtr::operator->() const noexcept
 }
 
 bool Filter::init(const uint32_t width, const uint32_t height, const AVRational fps, const int32_t format,
-    const float scale, uint32_t numThreads, errorCallback error) noexcept
+    const float scale, const uint32_t numThreads, errorCallback error) noexcept
 {
     m_errorCallback = move(error);
 
@@ -196,8 +196,7 @@ bool Filter::init(const uint32_t width, const uint32_t height, const AVRational 
         av_opt_set(scaleContext, "w", "640", AV_OPT_SEARCH_CHILDREN);
         av_opt_set(scaleContext, "h", to_string(heightScale).c_str(), AV_OPT_SEARCH_CHILDREN);
 
-        // av_opt_set(scaleContext, "out_color_matrix", "bt709", AV_OPT_SEARCH_CHILDREN);
-        av_opt_set(scaleContext, "out_range", "full", AV_OPT_SEARCH_CHILDREN);
+        av_opt_set(scaleContext, "flags", "point", AV_OPT_SEARCH_CHILDREN);
 
         // Link the filter into chain
         ret = avfilter_link(nextFilter, 0, scaleContext, 0);
