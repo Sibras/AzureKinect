@@ -88,6 +88,20 @@ const AVFrame* FramePtr::operator->() const noexcept
     return m_frame.get();
 }
 
+DevicePtr::DevicePtr(AVBufferRef* device) noexcept
+    : m_device(device, [](AVBufferRef* p) { av_buffer_unref(&p); })
+{}
+
+AVBufferRef* DevicePtr::get() const noexcept
+{
+    return m_device.get();
+}
+
+const AVBufferRef* DevicePtr::operator->() const noexcept
+{
+    return m_device.get();
+}
+
 Encoder::~Encoder()
 {
     shutdown();
@@ -95,12 +109,13 @@ Encoder::~Encoder()
 }
 
 bool Encoder::init(const string& filename, const uint32_t width, const uint32_t height, const uint32_t fps,
-    const int32_t format, const float scale, const uint32_t numThreads, errorCallback error) noexcept
+    const int32_t format, const float scale, const uint32_t numThreads, const bool useGPU, errorCallback error) noexcept
 {
     m_errorCallback = move(error);
     m_format = format;
     m_timebase = {1, static_cast<int32_t>(fps)};
     m_shutdown = false;
+    m_useGPU = useGPU;
 
     // Set the ffmpeg callback for receiving log messages
 #ifdef _DEBUG
@@ -179,15 +194,15 @@ bool Encoder::addFrame(uint8_t* data, const uint32_t width, const uint32_t heigh
 
     // Place frame on pending stack
     m_dataBuffer[bufferMod] = move(frame2);
-    if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size()) - 2) {
-        // Error buffer overflow
-        m_errorCallback("Encode buffer has overflowed"s);
-        return false;
-    }
     ++m_bufferIndex;
     {
         lock_guard<mutex> lock(m_lock);
         ++m_remainingBuffers;
+        if (m_remainingBuffers == static_cast<int32_t>(m_dataBuffer.size())) {
+            // Error buffer overflow
+            m_errorCallback("Encode buffer has overflowed"s);
+            return false;
+        }
     }
     // Notify wakeup
     m_condition.notify_one();
@@ -235,7 +250,23 @@ bool Encoder::initOutput(const string& filename, const uint32_t width, const uin
     }
 
     // Find the required encoder
-    const auto encoder = avcodec_find_encoder(AV_CODEC_ID_H264);
+    AVCodec* encoder;
+    DevicePtr tempDevice;
+    if (m_useGPU) {
+        AVBufferRef* devicePtr = nullptr;
+        ret = av_hwdevice_ctx_create(&devicePtr, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0);
+        tempDevice = DevicePtr(devicePtr);
+        if (ret < 0) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Failed to create NVEncoder device "s += getFfmpegErrorString(ret));
+            }
+            return false;
+        }
+
+        encoder = avcodec_find_encoder_by_name("h264_nvenc");
+    } else {
+        encoder = avcodec_find_encoder(AV_CODEC_ID_H264);
+    }
     if (!encoder) {
         if (m_errorCallback != nullptr) {
             m_errorCallback("Requested encoder is not supported");
@@ -254,7 +285,7 @@ bool Encoder::initOutput(const string& filename, const uint32_t width, const uin
     tempCodec->height = m_filter.getHeight();
     tempCodec->width = m_filter.getWidth();
     tempCodec->sample_aspect_ratio = {1, 1};
-    tempCodec->pix_fmt = m_filter.getPixelFormat();
+    tempCodec->pix_fmt = m_useGPU ? AV_PIX_FMT_CUDA : m_filter.getPixelFormat();
     tempCodec->framerate = m_filter.getFrameRate();
     tempCodec->time_base = av_inv_q(tempCodec->framerate);
     av_opt_set_int(tempCodec.get(), "refcounted_frames", 1, 0);
@@ -265,11 +296,49 @@ bool Encoder::initOutput(const string& filename, const uint32_t width, const uin
 
     // Setup the desired encoding options
     AVDictionary* opts = nullptr;
-    av_dict_set(&opts, "crf", to_string(23).c_str(), 0);
-    av_dict_set(&opts, "preset", "veryfast", 0);
+    if (m_useGPU) {
+        AVBufferRef* framesRef;
+        framesRef = av_hwframe_ctx_alloc(tempDevice.get());
+        if (!framesRef) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Failed to create NVEncoder frame context"s);
+            }
+            return false;
+        }
+        auto* frames = reinterpret_cast<AVHWFramesContext*>(framesRef->data);
+        frames->format = AV_PIX_FMT_CUDA;
+        frames->sw_format = m_filter.getPixelFormat();
+        frames->width = width;
+        frames->height = height;
+        frames->initial_pool_size = static_cast<int>(m_dataBuffer.size());
 
-    if (numThreads != 0) {
-        av_dict_set(&opts, "threads", to_string(numThreads).c_str(), 0);
+        ret = av_hwframe_ctx_init(framesRef);
+        if (ret < 0) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Failed to initialise NVEncoder frame context "s += getFfmpegErrorString(ret));
+            }
+            av_buffer_unref(&framesRef);
+            return false;
+        }
+        tempCodec->hw_frames_ctx = av_buffer_ref(framesRef);
+        av_buffer_unref(&framesRef);
+        if (!tempCodec->hw_frames_ctx) {
+            if (m_errorCallback != nullptr) {
+                m_errorCallback("Failed to attach NVEncoder frame context"s);
+            }
+            return false;
+        }
+
+        av_dict_set(&opts, "rc", "vbr", 0);
+        av_dict_set(&opts, "cq", to_string(23).c_str(), 0);
+        av_dict_set(&opts, "preset", "llhp", 0);
+    } else {
+        av_dict_set(&opts, "crf", to_string(23).c_str(), 0);
+        av_dict_set(&opts, "preset", "veryfast", 0);
+
+        if (numThreads != 0) {
+            av_dict_set(&opts, "threads", to_string(numThreads).c_str(), 0);
+        }
     }
 
     // Open the encoder
@@ -336,7 +405,7 @@ void Encoder::cleanupOutput() noexcept
 
     // Finalise the encoder
     if (m_formatContext.m_formatContext != nullptr) {
-        const FramePtr temp2(nullptr);
+        FramePtr temp2(nullptr);
         (void)encodeFrame(temp2);
         m_codecContext = CodecContextPtr(nullptr);
         m_formatContext = OutputFormatContextPtr(nullptr);
@@ -371,10 +440,13 @@ bool Encoder::process() noexcept
 {
     // Get frame to be processed
     while (true) {
-        if (m_remainingBuffers == 0) {
-            break;
+        {
+            unique_lock<mutex> lock(m_lock);
+            if (m_remainingBuffers == 0) {
+                break;
+            }
+            --m_remainingBuffers;
         }
-        --m_remainingBuffers;
         FramePtr frame(move(m_dataBuffer[m_nextBufferIndex]));
         ++m_nextBufferIndex;
         m_nextBufferIndex = m_nextBufferIndex < m_dataBuffer.size() ? m_nextBufferIndex : 0;
@@ -409,13 +481,50 @@ bool Encoder::processFrame(FramePtr& frame) const noexcept
     return true;
 }
 
-bool Encoder::encodeFrame(const FramePtr& frame) const noexcept
+bool Encoder::encodeFrame(FramePtr& frame) const noexcept
 {
     if (frame.m_frame != nullptr) {
+        if (m_useGPU) {
+            // Create a new frame to hold device memory
+            FramePtr frame2(av_frame_alloc());
+            if (frame2.get() == nullptr) {
+                if (m_errorCallback != nullptr) {
+                    m_errorCallback("Failed to allocate new device frame"s);
+                }
+                return false;
+            }
+
+            // Create a new buffer for the hardware frame
+            auto ret = av_hwframe_get_buffer(m_codecContext->hw_frames_ctx, frame2.get(), 0);
+            if (ret < 0) {
+                if (m_errorCallback != nullptr) {
+                    m_errorCallback("Failed to get device frame storage, "s += getFfmpegErrorString(ret));
+                }
+                return false;
+            }
+            if (!frame2->hw_frames_ctx) {
+                if (m_errorCallback != nullptr) {
+                    m_errorCallback("Failed to init device frame storage");
+                }
+                return false;
+            }
+
+            // Transfer data from host to device
+            ret = av_hwframe_transfer_data(frame2.get(), frame.get(), 0);
+            if (ret < 0) {
+                if (m_errorCallback != nullptr) {
+                    m_errorCallback("Failed to transfer device frame, "s += getFfmpegErrorString(ret));
+                }
+                return false;
+            }
+            frame2.get()->best_effort_timestamp = frame.get()->best_effort_timestamp;
+            frame = move(frame2);
+        }
+
         // Send frame to encoder
         frame.m_frame->best_effort_timestamp =
-            av_rescale_q(frame.m_frame->best_effort_timestamp, m_timebase, m_codecContext->time_base);
-        frame.m_frame->pts = frame.m_frame->best_effort_timestamp;
+            av_rescale_q(frame.get()->best_effort_timestamp, m_timebase, m_codecContext->time_base);
+        frame.m_frame->pts = frame.get()->best_effort_timestamp;
         const auto ret = avcodec_send_frame(m_codecContext.get(), frame.get());
         if (ret < 0) {
             if (m_errorCallback != nullptr) {

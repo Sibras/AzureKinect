@@ -73,6 +73,20 @@ public:
     std::shared_ptr<AVFrame> m_frame = nullptr;
 };
 
+class DevicePtr
+{
+public:
+    DevicePtr() noexcept = default;
+
+    explicit DevicePtr(AVBufferRef* device) noexcept;
+
+    [[nodiscard]] AVBufferRef* get() const noexcept;
+
+    const AVBufferRef* operator->() const noexcept;
+
+    std::shared_ptr<AVBufferRef> m_device = nullptr;
+};
+
 class Encoder
 {
 public:
@@ -99,11 +113,12 @@ public:
      * @param format     The input frame pixel format.
      * @param scale      The scale that needs to be applied to input pixels.
      * @param numThreads Number of threads to use.
+     * @param useGPU     True to use GPU accelerated encoding.
      * @param error      (Optional) The callback used to signal errors.
      * @returns True if it succeeds, false if it fails.
      */
     bool init(const std::string& filename, uint32_t width, uint32_t height, uint32_t fps, int32_t format, float scale,
-        uint32_t numThreads, errorCallback error = nullptr) noexcept;
+        uint32_t numThreads, bool useGPU, errorCallback error = nullptr) noexcept;
 
     /**
      * Adds a frame to be processed.
@@ -131,6 +146,7 @@ private:
     uint32_t m_nextBufferIndex = 0;
     int32_t m_format = 0;
     uint64_t m_frameNumber = 0;
+    bool m_useGPU = false;
 
     OutputFormatContextPtr m_formatContext;
     CodecContextPtr m_codecContext;
@@ -180,7 +196,7 @@ private:
      * @param frame The frame.
      * @returns True if it succeeds, false if it fails.
      */
-    [[nodiscard]] bool encodeFrame(const FramePtr& frame) const noexcept;
+    [[nodiscard]] bool encodeFrame(FramePtr& frame) const noexcept;
 
     /**
      * Writes encoded frames to output.
