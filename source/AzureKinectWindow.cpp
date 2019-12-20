@@ -91,10 +91,11 @@ AzureKinectWindow::AzureKinectWindow(QWidget* parent) noexcept
     connect(m_ui.actionIR_Image, &QAction::triggered, this, &AzureKinectWindow::viewIRImageSlot);
     connect(m_ui.actionBody_Shadow, &QAction::triggered, this, &AzureKinectWindow::viewBodyShadowSlot);
     connect(m_ui.actionBody_Skeleton, &QAction::triggered, this, &AzureKinectWindow::viewBodySkeletonSlot);
-    connect(m_ui.actionDepth_Image_2, &QAction::triggered, this, &AzureKinectWindow::recordDepthImageSlot);
-    connect(m_ui.actionColour_Image_2, &QAction::triggered, this, &AzureKinectWindow::recordColourImageSlot);
-    connect(m_ui.actionIR_Image_2, &QAction::triggered, this, &AzureKinectWindow::recordIRImageSlot);
-    connect(m_ui.actionBody_Skeleton_2, &QAction::triggered, this, &AzureKinectWindow::recordBodySkeletonSlot);
+    connect(m_ui.actionDepth_Image_2, &QAction::triggered, this, &AzureKinectWindow::updateRecordOptionsSlot);
+    connect(m_ui.actionColour_Image_2, &QAction::triggered, this, &AzureKinectWindow::updateRecordOptionsSlot);
+    connect(m_ui.actionIR_Image_2, &QAction::triggered, this, &AzureKinectWindow::updateRecordOptionsSlot);
+    connect(m_ui.actionBody_Skeleton_2, &QAction::triggered, this, &AzureKinectWindow::updateRecordOptionsSlot);
+    connect(m_ui.actionGPU_Encoding, &QAction::triggered, this, &AzureKinectWindow::updateRecordOptionsSlot);
 
     m_ui.statusBar->showMessage(tr("Waiting for camera to start..."));
 
@@ -124,11 +125,12 @@ void AzureKinectWindow::startSlot() noexcept
         // Change button to stop
         m_started = true;
         m_ui.buttonStart->setText(tr("Stop"));
-        m_ui.actionDepth_Image_2->setEnabled(false);
         // Disable changing recording settings while running
+        m_ui.actionDepth_Image_2->setEnabled(false);
         m_ui.actionColour_Image_2->setEnabled(false);
         m_ui.actionIR_Image_2->setEnabled(false);
         m_ui.actionBody_Skeleton_2->setEnabled(false);
+        m_ui.actionGPU_Encoding->setEnabled(false);
 
         m_ui.statusBar->showMessage(tr("Recording started..."));
     } else {
@@ -139,6 +141,7 @@ void AzureKinectWindow::startSlot() noexcept
         m_ui.actionColour_Image_2->setEnabled(true);
         m_ui.actionIR_Image_2->setEnabled(true);
         m_ui.actionBody_Skeleton_2->setEnabled(true);
+        m_ui.actionGPU_Encoding->setEnabled(true);
 
         m_ui.statusBar->showMessage(tr("Recording stopped"));
     }
@@ -165,7 +168,7 @@ void AzureKinectWindow::readySlot() noexcept
 {
     m_ui.statusBar->showMessage(tr("Camera is now ready for capture"));
     m_ready = true;
-    updateRecordOptions(); // This will enable the start button if possible
+    updateRecordOptionsSlot(); // This will enable the start button if possible
 }
 
 void AzureKinectWindow::viewDepthImageSlot() noexcept
@@ -204,28 +207,21 @@ void AzureKinectWindow::viewBodySkeletonSlot() noexcept
     m_viewBodySkeleton = m_ui.actionBody_Skeleton->isChecked();
 }
 
-void AzureKinectWindow::recordDepthImageSlot() noexcept
+void AzureKinectWindow::updateRecordOptionsSlot() noexcept
 {
-    m_recordDepthImage = m_ui.actionDepth_Image_2->isChecked();
-    updateRecordOptions();
-}
-
-void AzureKinectWindow::recordColourImageSlot() noexcept
-{
-    m_recordColourImage = m_ui.actionColour_Image_2->isChecked();
-    updateRecordOptions();
-}
-
-void AzureKinectWindow::recordIRImageSlot() noexcept
-{
-    m_recordIRImage = m_ui.actionIR_Image_2->isChecked();
-    updateRecordOptions();
-}
-
-void AzureKinectWindow::recordBodySkeletonSlot() noexcept
-{
-    m_recordBodySkeleton = m_ui.actionBody_Skeleton_2->isChecked();
-    updateRecordOptions();
+    const bool recordDepthImage = m_ui.actionDepth_Image_2->isChecked();
+    const bool recordColourImage = m_ui.actionColour_Image_2->isChecked();
+    const bool recordIRImage = m_ui.actionIR_Image_2->isChecked();
+    const bool recordBodySkeleton = m_ui.actionBody_Skeleton_2->isChecked();
+    const bool recordGPUEncode = m_ui.actionGPU_Encoding->isChecked();
+    if (!recordDepthImage && !recordColourImage && !recordIRImage && !recordBodySkeleton) {
+        // If no recording options have been specified then disable the start button
+        m_ui.buttonStart->setEnabled(false);
+    } else if (m_ready && !m_ui.buttonStart->isEnabled()) {
+        m_ui.buttonStart->setEnabled(true);
+    }
+    m_recorder.setRecordOptions(
+        recordDepthImage, recordColourImage, recordIRImage, recordBodySkeleton, recordGPUEncode);
 }
 
 void AzureKinectWindow::closeEvent(QCloseEvent* event) noexcept
@@ -316,16 +312,5 @@ void AzureKinectWindow::updateRenderOptions() const noexcept
     m_ui.actionIR_Image->setEnabled(!m_viewIRImage);
     m_ui.openGLWidget->setRenderOptions(
         m_viewDepthImage, m_viewColourImage, m_viewIRImage, m_viewBodyShadow, m_viewBodySkeleton);
-}
-
-void AzureKinectWindow::updateRecordOptions() noexcept
-{
-    if (!m_recordDepthImage && !m_recordColourImage && !m_recordIRImage && !m_recordBodySkeleton) {
-        // If no recording options have been specified then disable the start button
-        m_ui.buttonStart->setEnabled(false);
-    } else if (m_ready && !m_ui.buttonStart->isEnabled()) {
-        m_ui.buttonStart->setEnabled(true);
-    }
-    m_recorder.setRecordOptions(m_recordDepthImage, m_recordColourImage, m_recordIRImage, m_recordBodySkeleton);
 }
 } // namespace Ak

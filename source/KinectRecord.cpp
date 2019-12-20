@@ -25,8 +25,6 @@
 using namespace std;
 
 namespace Ak {
-constexpr bool useGPU = true;
-
 // Define the joint string names
 static array<pair<k4abt_joint_id_t, std::string>, 32> s_jointNames = {std::make_pair(K4ABT_JOINT_PELVIS, "PELVIS"),
     std::make_pair(K4ABT_JOINT_SPINE_NAVEL, "SPINE_NAVAL"), std::make_pair(K4ABT_JOINT_SPINE_CHEST, "SPINE_CHEST"),
@@ -181,13 +179,14 @@ void KinectRecord::dataCallback(const uint64_t time, const KinectImage& depthIma
     }
 }
 
-void KinectRecord::setRecordOptions(
-    const bool depthImage, const bool colourImage, const bool irImage, const bool bodySkeleton) noexcept
+void KinectRecord::setRecordOptions(const bool depthImage, const bool colourImage, const bool irImage,
+    const bool bodySkeleton, const bool useGPUEncode) noexcept
 {
     m_depthImage = depthImage;
     m_colourImage = colourImage;
     m_irImage = irImage;
     m_bodySkeleton = bodySkeleton;
+    m_useGPUEncode = useGPUEncode;
 }
 
 void KinectRecord::updateCalibration(const KinectCalibration& calibration) noexcept
@@ -268,15 +267,15 @@ bool KinectRecord::initOutput() noexcept
                 65536.0f / static_cast<float>(m_calibration.m_depthRange.y - m_calibration.m_depthRange.x);
             if (!m_encoders[0].init(videoFile + "_depth.mp4", m_calibration.m_depthDimensions.x,
                     m_calibration.m_depthDimensions.y, m_calibration.m_fps, AV_PIX_FMT_GRAY16LE, scale, numThreads,
-                    useGPU, m_errorCallback)) {
+                    m_useGPUEncode, m_errorCallback)) {
                 cleanupOutput();
                 return false;
             }
         }
         if (m_colourImage) {
             if (!m_encoders[1].init(videoFile + "_colour.mp4", m_calibration.m_colourDimensions.x,
-                    m_calibration.m_colourDimensions.y, m_calibration.m_fps, AV_PIX_FMT_BGRA, 1.0f, numThreads, useGPU,
-                    m_errorCallback)) {
+                    m_calibration.m_colourDimensions.y, m_calibration.m_fps, AV_PIX_FMT_BGRA, 1.0f, numThreads,
+                    m_useGPUEncode, m_errorCallback)) {
                 cleanupOutput();
                 return false;
             }
@@ -284,8 +283,8 @@ bool KinectRecord::initOutput() noexcept
         if (m_irImage) {
             const float scale = 65536.0f / static_cast<float>(m_calibration.m_irRange.y - m_calibration.m_irRange.x);
             if (!m_encoders[2].init(videoFile + "_ir.mp4", m_calibration.m_irDimensions.x,
-                    m_calibration.m_irDimensions.y, m_calibration.m_fps, AV_PIX_FMT_GRAY16LE, scale, numThreads, useGPU,
-                    m_errorCallback)) {
+                    m_calibration.m_irDimensions.y, m_calibration.m_fps, AV_PIX_FMT_GRAY16LE, scale, numThreads,
+                    m_useGPUEncode, m_errorCallback)) {
                 cleanupOutput();
                 return false;
             }

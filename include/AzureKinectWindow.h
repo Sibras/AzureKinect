@@ -63,17 +63,8 @@ public slots:
     /** Slot used to select display of body skeleton */
     void viewBodySkeletonSlot() noexcept;
 
-    /** Slot used to select recording of depth image */
-    void recordDepthImageSlot() noexcept;
-
-    /** Slot used to select recording of colour image */
-    void recordColourImageSlot() noexcept;
-
-    /** Slot used to select recording of IR image */
-    void recordIRImageSlot() noexcept;
-
-    /** Slot used to select recording of body skeleton */
-    void recordBodySkeletonSlot() noexcept;
+    /** Slot used to update the record options for the record object */
+    void updateRecordOptionsSlot() noexcept;
 
 private:
     Ui::AzureKinectClass m_ui;
@@ -93,10 +84,6 @@ private:
     bool m_viewIRImage = false;
     bool m_viewBodyShadow = true;
     bool m_viewBodySkeleton = true;
-    bool m_recordDepthImage = false;
-    bool m_recordColourImage = true;
-    bool m_recordIRImage = false;
-    bool m_recordBodySkeleton = true;
     bool m_started = false;
     bool m_ready = false;
     AzureKinect m_kinect;
@@ -136,9 +123,6 @@ private:
 
     /** Updates the render options for the render widget */
     void updateRenderOptions() const noexcept;
-
-    /** Updates the record options for the record object */
-    void updateRecordOptions() noexcept;
 
 signals:
     /**

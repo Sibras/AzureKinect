@@ -86,8 +86,10 @@ public:
      * @param colourImage  True to render colour image.
      * @param irImage      True to render IR image.
      * @param bodySkeleton True to render body skeleton.
+     * @param useGPUEncode True to use GPU encoding of video.
      */
-    void setRecordOptions(bool depthImage, bool colourImage, bool irImage, bool bodySkeleton) noexcept;
+    void setRecordOptions(
+        bool depthImage, bool colourImage, bool irImage, bool bodySkeleton, bool useGPUEncode) noexcept;
 
     /**
      * Updates the calibration information for the camera
@@ -116,6 +118,7 @@ private:
     bool m_colourImage = false;
     bool m_irImage = false;
     bool m_bodySkeleton = true;
+    bool m_useGPUEncode = true;
     std::ofstream m_skeletonFile;
     std::atomic_uint32_t m_pid = 0;
     std::array<Encoder, 3> m_encoders;
