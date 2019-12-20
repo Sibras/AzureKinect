@@ -108,7 +108,7 @@ private:
         std::vector<Joint> m_joints;
     };
 
-    std::array<DataBuffers, 16 /*must be power of 2*/> m_dataBuffer;
+    std::array<DataBuffers, 32 /*must be power of 2*/> m_dataBuffer;
     std::atomic_uint32_t m_bufferIndex = 0;
     std::atomic_int32_t m_remainingBuffers = 0;
     uint32_t m_nextBufferIndex = 0;

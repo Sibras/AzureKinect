@@ -140,7 +140,7 @@ private:
     std::mutex m_lock;
     std::condition_variable m_condition;
 
-    std::array<FramePtr, 16 /*must be power of 2*/> m_dataBuffer;
+    std::array<FramePtr, 32 /*must be power of 2*/> m_dataBuffer;
     std::atomic_uint32_t m_bufferIndex = 0;
     std::atomic_int32_t m_remainingBuffers = 0;
     uint32_t m_nextBufferIndex = 0;
