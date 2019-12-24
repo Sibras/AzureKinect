@@ -118,7 +118,7 @@ private:
     bool m_colourImage = false;
     bool m_irImage = false;
     bool m_bodySkeleton = true;
-    bool m_useGPUEncode = true;
+    bool m_useGPUEncode = false;
     std::ofstream m_skeletonFile;
     std::atomic_uint32_t m_pid = 0;
     std::array<Encoder, 3> m_encoders;
