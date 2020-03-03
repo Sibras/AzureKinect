@@ -84,10 +84,11 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(QtDllPath)\Qt5Cored.dll $(OutDir)
-copy $(QtDllPath)\Qt5Guid.dll $(OutDir)
-copy $(QtDllPath)\Qt5Widgetsd.dll $(OutDir)</Command>
+      <Command>$(QtDllPath)\windeployqt.exe $(OutDir)\$(ProjectName).exe --no-compiler-runtime --debug</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>del $(OutDir)\*.dll</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -115,10 +116,11 @@ copy $(QtDllPath)\Qt5Widgetsd.dll $(OutDir)</Command>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(QtDllPath)\Qt5Core.dll $(OutDir)
-copy $(QtDllPath)\Qt5Gui.dll $(OutDir)
-copy $(QtDllPath)\Qt5Widgets.dll $(OutDir)</Command>
+      <Command>$(QtDllPath)\windeployqt.exe $(OutDir)\$(ProjectName).exe --no-compiler-runtime --release</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>del $(OutDir)\*.dll</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\AzureKinect.cpp" />
